@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>单词卡片</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Arial", "Microsoft YaHei", sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f5f5f5;
+            padding: 20px;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .card {
+            width: 90%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+            padding-top: 60px;
+        }
+
+        .toggle-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #4285f4;
+            color: white;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 18px;
+            transition: all 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .toggle-btn:hover {
+            background: #3367d6;
+            transform: rotate(90deg);
+        }
+
+        .front {
+            padding: 0 20px 20px;
+            display: block;
+        }
+
+        .back {
+            padding: 0 20px 20px;
+            display: none;
+        }
+
+        .word-list {
+            width: 20%;
+            float: left;
+            border-right: 1px solid #eee;
+            padding-right: 15px;
+            height: 500px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .word-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: #f8f9fa;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .word-item:hover {
+            background: #e9ecef;
+        }
+
+        .sentence-area-front, .sentence-area-back {
+            width: 78%;
+            float: right;
+            height: 500px;
+            overflow-y: auto;
+            padding: 0 10px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .sentence-area-front .dialog-sentence {
+            margin: 15px 0;
+            line-height: 1.6;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .sentence-area-front .dialog-sentence:hover {
+            color: #4285f4;
+        }
+
+        /* 优化目标单词字体：从600调整为500，更美观不突兀 */
+        .sentence-area-front .highlight-word {
+            font-weight: 500;
+            color: #2d3748;
+            /* 增加轻微文字阴影提升质感 */
+            text-shadow: 0 0 1px rgba(0,0,0,0.05);
+        }
+
+        .sentence-area-back .sentence-pair {
+            margin: 15px 0;
+            line-height: 1.6;
+        }
+
+        /* 优化背面英文字体粗细，更协调 */
+        .sentence-area-back .english {
+            font-weight: 500;
+            color: #2d3748;
+            text-shadow: 0 0 1px rgba(0,0,0,0.05);
+        }
+
+        .sentence-area-back .chinese {
+            color: #4a5568;
+            margin-top: 5px;
+            padding-left: 10px;
+            border-left: 3px solid #4285f4;
+        }
+
+        .word-detail {
+            clear: both;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .word-detail h3 {
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .word-detail .phonetic {
+            color: #718096;
+            margin-bottom: 8px;
+        }
+
+        .word-detail .meanings {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+
+        .word-detail .pronounce-btn, .speech-controls .play-btn {
+            padding: 6px 12px;
+            background: #4285f4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .word-detail .pronounce-btn:hover, .speech-controls .play-btn:hover {
+            background: #3367d6;
+        }
+
+        .speech-controls {
+            clear: both;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .speech-controls label {
+            font-weight: 600;
+            color: #2d3748;
+        }
+
+        .speech-controls select, .speech-controls input {
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .clearfix::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+
+        /* iPad触摸适配 */
+        @media screen and (max-width: 1024px) {
+            .word-list {
+                width: 25%;
+            }
+            .sentence-area-front, .sentence-area-back {
+                width: 73%;
+            }
+            .card {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <!-- 修改翻转按钮图标为双向箭头 fa-right-left -->
+        <button class="toggle-btn" id="toggleBtn"><i class="fa-solid fa-right-left"></i></button>
+
+        <div class="front clearfix" id="frontCard">
+            <div class="word-list" id="wordList">
+                <div class="word-item" data-word="peril">peril</div>
+                <div class="word-item" data-word="accountable">accountable</div>
+                <div class="word-item" data-word="organism">organism</div>
+                <div class="word-item" data-word="journalism">journalism</div>
+                <div class="word-item" data-word="citizen">citizen</div>
+                <div class="word-item" data-word="civilization">civilization</div>
+                <div class="word-item" data-word="campus">campus</div>
+                <div class="word-item" data-word="aptitude">aptitude</div>
+                <div class="word-item" data-word="startle">startle</div>
+                <div class="word-item" data-word="scenery">scenery</div>
+            </div>
+            <div class="sentence-area-front" id="sentenceFront"></div>
+            <div class="word-detail" id="wordDetail"></div>
+        </div>
+
+        <div class="back clearfix" id="backCard">
+            <div class="sentence-area-back" id="sentenceBack"></div>
+            <div class="speech-controls" id="speechControls">
+                <button class="play-btn" id="playSentenceBtn">播放对话发音</button>
+                <div>
+                    <label for="voiceSelectA">A发音人：</label>
+                    <select id="voiceSelectA"></select>
+                </div>
+                <div>
+                    <label for="voiceSelectB">B发音人：</label>
+                    <select id="voiceSelectB"></select>
+                </div>
+                <div>
+                    <label for="speedRange">发音速度：</label>
+                    <input type="range" id="speedRange" min="0.5" max="2" step="0.1" value="1">
+                    <span id="speedValue">1.0x</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 连贯情景对话（正面显示，包含高亮单词，无序号）- 优化为雅思听力级自然口语表达
+        const frontDialogs = [
+            "A：I’ve been looking into our <span class='highlight-word'>campus</span> ecosystem lately, and I actually found a rare <span class='highlight-word'>organism</span> near the lake—have you seen anything like that at all?",
+            "B：Oh, that’s really fascinating! As someone studying <span class='highlight-word'>journalism</span>, I reckon this discovery could help raise awareness about protecting our local <span class='highlight-word'>scenery</span> and wildlife.",
+            "A：Absolutely! Every <span class='highlight-word'>citizen</span> should feel <span class='highlight-word'>accountable</span> for preserving these kinds of treasures, especially since our <span class='highlight-word'>civilization</span> has always been so closely connected to nature.",
+            "B：I totally agree. Last week, a group of students tried to get way too close to the lake, and their noise seemed to <span class='highlight-word'>startle</span> some small creatures—we really shouldn’t be putting these <span class='highlight-word'>organism</span>s in <span class='highlight-word'>peril</span> like that.",
+            "A：That’s a really good point. I’ve noticed some students have a natural <span class='highlight-word'>aptitude</span> for photography, and they’ve been capturing the <span class='highlight-word'>scenery</span> without disturbing the wildlife at all.",
+            "B：You know, maybe we could collaborate with them on a <span class='highlight-word'>journalism</span> project? We could highlight how <span class='highlight-word'>citizen</span>s can protect the <span class='highlight-word'>campus</span> environment while still appreciating its beauty.",
+            "A：Oh, what a great idea! It’d also emphasize that we’re all <span class='highlight-word'>accountable</span> for safeguarding not just the <span class='highlight-word'>organism</span>s but also the legacy of our <span class='highlight-word'>civilization</span> here on campus.",
+            "B：Exactly! I don’t want to <span class='highlight-word'>startle</span> anyone with alarming facts or anything, but a lot of small <span class='highlight-word'>organism</span>s are already in <span class='highlight-word'>peril</span> because of careless human actions.",
+            "A：That’s exactly why this project is so important. The <span class='highlight-word'>campus</span> has such stunning <span class='highlight-word'>scenery</span>, and with the <span class='highlight-word'>aptitude</span> of our peers, we could actually make a real difference through <span class='highlight-word'>journalism</span>.",
+            "B：Right, let’s get started then! As <span class='highlight-word'>citizen</span>s of this community, we’ve got a responsibility to make sure our <span class='highlight-word'>civilization</span> grows in harmony with nature, not at the cost of putting other <span class='highlight-word'>organism</span>s in <span class='highlight-word'>peril</span>."
+        ];
+
+        // 背面中英对照对话（无序号，保持连贯性）- 同步优化为雅思听力级自然表达
+        const backDialogPairs = [
+            { 
+                english: "A：I’ve been looking into our campus ecosystem lately, and I actually found a rare organism near the lake—have you seen anything like that at all?", 
+                chinese: "A：我最近一直在研究我们校园的生态系统，而且其实我在湖边发现了一种罕见的生物——你到底有没有见过类似的东西？" 
+            },
+            { 
+                english: "B：Oh, that’s really fascinating! As someone studying journalism, I reckon this discovery could help raise awareness about protecting our local scenery and wildlife.", 
+                chinese: "B：哦，这太有意思了！作为一名学习新闻专业的人，我觉得这个发现有助于提高人们对保护当地风景和野生动物的意识。" 
+            },
+            { 
+                english: "A：Absolutely! Every citizen should feel accountable for preserving these kinds of treasures, especially since our civilization has always been so closely connected to nature.", 
+                chinese: "A：完全没错！每个公民都应该为保护这类宝藏感到责任在肩，尤其是因为我们的文明一直与自然联系得如此紧密。" 
+            },
+            { 
+                english: "B：I totally agree. Last week, a group of students tried to get way too close to the lake, and their noise seemed to startle some small creatures—we really shouldn’t be putting these organisms in peril like that.", 
+                chinese: "B：我完全同意。上周有一群学生试图过分靠近湖边，他们的噪音似乎吓到了一些小动物——我们真的不应该这样把这些生物置于危险之中。" 
+            },
+            { 
+                english: "A：That’s a really good point. I’ve noticed some students have a natural aptitude for photography, and they’ve been capturing the scenery without disturbing the wildlife at all.", 
+                chinese: "A：你说得太有道理了。我注意到有些学生天生就有摄影天赋，他们一直在捕捉风景的同时，完全没有打扰到野生动物。" 
+            },
+            { 
+                english: "B：You know, maybe we could collaborate with them on a journalism project? We could highlight how citizens can protect the campus environment while still appreciating its beauty.", 
+                chinese: "B：你知道吗，或许我们可以和他们合作一个新闻项目？我们可以强调公民如何在依然欣赏校园美景的同时保护校园环境。" 
+            },
+            { 
+                english: "A：Oh, what a great idea! It’d also emphasize that we’re all accountable for safeguarding not just the organisms but also the legacy of our civilization here on campus.", 
+                chinese: "A：哦，好主意！这也会强调我们所有人都有责任保护这些生物，以及我们在这个校园里的文明遗产。" 
+            },
+            { 
+                english: "B：Exactly! I don’t want to startle anyone with alarming facts or anything, but a lot of small organisms are already in peril because of careless human actions.", 
+                chinese: "B：没错！我不想用令人震惊的事实之类的东西吓到任何人，但很多小型生物已经因为人类的粗心行为而处于危险之中。" 
+            },
+            { 
+                english: "A：That’s exactly why this project is so important. The campus has such stunning scenery, and with the aptitude of our peers, we could actually make a real difference through journalism.", 
+                chinese: "A：这正是这个项目如此重要的原因。校园的风景如此迷人，凭借同龄人的天赋，我们实际上可以通过新闻工作产生真正的影响。" 
+            },
+            { 
+                english: "B：Right, let’s get started then! As citizens of this community, we’ve got a responsibility to make sure our civilization grows in harmony with nature, not at the cost of putting other organisms in peril.", 
+                chinese: "B：对，那我们现在就开始吧！作为这个社区的公民，我们有责任确保我们的文明与自然和谐发展，而不是以牺牲其他生物的安全为代价。" 
+            }
+        ];
+
+        // 不需要打乱顺序（保持对话连贯性）
+        const shuffledFront = frontDialogs;
+        const shuffledBack = backDialogPairs;
+
+        const sentenceFront = document.getElementById('sentenceFront');
+        shuffledFront.forEach((dialog) => {
+            const p = document.createElement('p');
+            p.className = 'dialog-sentence';
+            p.innerHTML = dialog;
+            // 存储原始对话内容（去除A/B开头）用于发音
+            const pureText = p.textContent.replace(/^[AB]：/, '').trim();
+            p.dataset.text = pureText;
+            sentenceFront.appendChild(p);
+        });
+
+        const sentenceBack = document.getElementById('sentenceBack');
+        shuffledBack.forEach((pair) => {
+            const div = document.createElement('div');
+            div.className = 'sentence-pair';
+            div.innerHTML = `
+                <p class="english">${pair.english}</p>
+                <p class="chinese">${pair.chinese}</p>
+            `;
+            sentenceBack.appendChild(div);
+        });
+
+        // 新单词数据
+        const wordData = {
+            peril: { phonetic: "/ˈperəl/", meanings: "1. 严重危险；祸患", word: "peril" },
+            accountable: { phonetic: "/əˈkaʊntəbl/", meanings: "1. 负有责任的；应作解释的", word: "accountable" },
+            organism: { phonetic: "/ˈɔːɡənɪzəm/", meanings: "1. 生物；有机体", word: "organism" },
+            journalism: { phonetic: "/ˈdʒɜːnəlɪzəm/", meanings: "1. 新闻业；新闻工作", word: "journalism" },
+            citizen: { phonetic: "/ˈsɪtɪzn/", meanings: "1. 公民；市民；居民", word: "citizen" },
+            civilization: { phonetic: "/ˌsɪvəlaɪˈzeɪʃn/", meanings: "1. 文明；文明社会；文化", word: "civilization" },
+            campus: { phonetic: "/ˈkæmpəs/", meanings: "1. （大学）校园；校区", word: "campus" },
+            aptitude: { phonetic: "/ˈæptɪtjuːd/", meanings: "1. 天资；天赋；才能", word: "aptitude" },
+            startle: { phonetic: "/ˈstɑːtl/", meanings: "1. （使）惊吓；（使）吃惊", word: "startle" },
+            scenery: { phonetic: "/ˈsiːnəri/", meanings: "1. 风景；景色；舞台布景", word: "scenery" }
+        };
+
+        const toggleBtn = document.getElementById('toggleBtn');
+        const frontCard = document.getElementById('frontCard');
+        const backCard = document.getElementById('backCard');
+        const wordList = document.getElementById('wordList');
+        const wordDetail = document.getElementById('wordDetail');
+        const playSentenceBtn = document.getElementById('playSentenceBtn');
+        const voiceSelectA = document.getElementById('voiceSelectA');
+        const voiceSelectB = document.getElementById('voiceSelectB');
+        const speedRange = document.getElementById('speedRange');
+        const speedValue = document.getElementById('speedValue');
+
+        let voices = [];
+        function loadVoices() {
+            voices = window.speechSynthesis.getVoices();
+            // 清空并填充两个发音人选择框
+            [voiceSelectA, voiceSelectB].forEach(select => {
+                select.innerHTML = '';
+                // 过滤并排序英文发音人，优先显示iOS高质量发音人
+                const englishVoices = voices.filter(voice => 
+                    voice.lang.includes('en') || voice.name.includes('English')
+                );
+                const otherVoices = voices.filter(voice => 
+                    !voice.lang.includes('en') && !voice.name.includes('English')
+                );
+                // 先加英文发音人，再加其他
+                [...englishVoices, ...otherVoices].forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.name;
+                    option.textContent = `${voice.name} (${voice.lang || 'Unknown'})`;
+                    select.appendChild(option);
+                });
+            });
+        }
+        // 适配iOS的voices加载时机
+        setTimeout(loadVoices, 500);
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        speedRange.addEventListener('input', () => {
+            const speed = speedRange.value;
+            speedValue.textContent = `${speed}x`;
+        });
+
+        // 单词发音函数
+        function pronounceWord(word) {
+            const utterance = new SpeechSynthesisUtterance(word);
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            utterance.volume = 1;
+            utterance.lang = 'en-US'; // 强制指定英文
+
+            let targetVoice = null;
+            if (voices.length > 0) {
+                // 优先匹配iOS高质量英文发音人
+                const iosHighQualityVoices = voices.filter(voice => 
+                    (voice.name === 'American English' || voice.name === 'British English' || voice.name === 'English (US)' || voice.name === 'English (UK)')
+                    && !voice.name.includes('Siri')
+                );
+                // 次选所有纯英文发音人
+                const pureEnglishVoices = voices.filter(voice => 
+                    voice.lang === 'en-US' || voice.lang === 'en-GB' || voice.lang === 'en-AU'
+                );
+                if (iosHighQualityVoices.length > 0) {
+                    targetVoice = iosHighQualityVoices[0];
+                } else if (pureEnglishVoices.length > 0) {
+                    targetVoice = pureEnglishVoices[0];
+                } else {
+                    targetVoice = voices[0];
+                }
+            }
+            if (targetVoice) utterance.voice = targetVoice;
+
+            // Safari适配：先停止再播放，避免串音
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // 句子发音函数（通用，优化自然度）
+        function pronounceSentence(text, voice, speed) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            // 优化发音语言设置，提升自然度
+            utterance.lang = voice?.lang || 'en-US';
+            // 调整音高，让不同发音人更有区分度且自然
+            utterance.pitch = voice === voiceSelectA.value ? 1.0 : 0.95;
+            utterance.rate = parseFloat(speed);
+            utterance.volume = 1;
+            if (voice) utterance.voice = voice;
+            return utterance;
+        }
+
+        // 正面句子点击发音
+        sentenceFront.addEventListener('click', (e) => {
+            const dialogSentence = e.target.closest('.dialog-sentence');
+            if (!dialogSentence) return;
+            const pureText = dialogSentence.dataset.text;
+            if (!pureText) return;
+
+            const utterance = pronounceSentence(pureText, null, speedRange.value);
+            // Safari适配：先停止再播放
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+        });
+
+        // 单词点击事件
+        wordList.addEventListener('click', (e) => {
+            const wordItem = e.target.closest('.word-item');
+            if (!wordItem) return;
+
+            const wordKey = wordItem.dataset.word;
+            const wordInfo = wordData[wordKey];
+            // 自动发音
+            pronounceWord(wordKey);
+
+            if (wordDetail.style.display === 'block' && wordDetail.dataset.current === wordKey) {
+                wordDetail.style.display = 'none';
+                wordDetail.removeAttribute('data-current');
+                return;
+            }
+
+            wordDetail.innerHTML = `
+                <h3>${wordInfo.word}</h3>
+                <div class="phonetic">音标：${wordInfo.phonetic}</div>
+                <div class="meanings">释义：${wordInfo.meanings}</div>
+                <button class="pronounce-btn" data-word="${wordKey}">点击发音</button>
+            `;
+            wordDetail.dataset.current = wordKey;
+            wordDetail.style.display = 'block';
+
+            wordDetail.querySelector('.pronounce-btn').addEventListener('click', () => {
+                pronounceWord(wordKey);
+            });
+        });
+
+        // 正反面切换
+        let isFront = true;
+        toggleBtn.addEventListener('click', () => {
+            if (isFront) {
+                frontCard.style.display = 'none';
+                backCard.style.display = 'block';
+                isFront = false;
+            } else {
+                frontCard.style.display = 'block';
+                backCard.style.display = 'none';
+                isFront = true;
+            }
+        });
+
+        // 对话发音播放逻辑（优化流畅度）
+        let isPlaying = false;
+        let currentUtterances = [];
+        let playTimer = null; // 用于控制句子间停顿的定时器
+        playSentenceBtn.addEventListener('click', () => {
+            if (isPlaying) {
+                // 停止所有播放和定时器
+                window.speechSynthesis.cancel();
+                if (playTimer) clearTimeout(playTimer);
+                playSentenceBtn.textContent = '播放对话发音';
+                isPlaying = false;
+                currentUtterances = [];
+                playTimer = null;
+                return;
+            }
+
+            // 提取背面的英文对话，保留A/B标识用于区分发音人
+            const dialogItems = Array.from(sentenceBack.querySelectorAll('.english')).map(el => ({
+                text: el.textContent.replace(/^[AB]：/, '').trim(),
+                speaker: el.textContent.startsWith('A：') ? 'A' : 'B'
+            }));
+            
+            // 获取选中的发音人（优化fallback逻辑）
+            const selectedVoiceAName = voiceSelectA.value;
+            const selectedVoiceBName = voiceSelectB.value;
+            
+            // 优先匹配选中的发音人，无则匹配英文发音人，最后取第一个可用发音人
+            const voiceA = voices.find(voice => voice.name === selectedVoiceAName) 
+                || voices.find(voice => voice.lang === 'en-US') 
+                || voices.find(voice => voice.lang.includes('en')) 
+                || (voices.length > 0 ? voices[0] : null);
+                
+            const voiceB = voices.find(voice => voice.name === selectedVoiceBName) 
+                || voices.find(voice => voice.lang === 'en-GB') 
+                || voices.find(voice => voice.lang.includes('en')) 
+                || (voices.length > 0 ? voices[0] : null);
+
+            // 无可用发音人时提示
+            if (!voiceA || !voiceB) {
+                alert('未检测到可用的英文发音人，请检查浏览器语音设置');
+                return;
+            }
+            
+            const speed = parseFloat(speedRange.value);
+            playSentenceBtn.textContent = '停止对话发音';
+            isPlaying = true;
+
+            // 按顺序播放对话，增加自然停顿
+            let currentIndex = 0;
+            
+            // 播放下一句的核心函数（带停顿）
+            function playNext() {
+                // 播放完成或已停止，重置状态
+                if (currentIndex >= dialogItems.length || !isPlaying) {
+                    playSentenceBtn.textContent = '播放对话发音';
+                    isPlaying = false;
+                    currentUtterances = [];
+                    playTimer = null;
+                    return;
+                }
+
+                const currentItem = dialogItems[currentIndex];
+                const targetVoice = currentItem.speaker === 'A' ? voiceA : voiceB;
+                
+                // 创建发音实例（优化参数提升自然度）
+                const utterance = new SpeechSynthesisUtterance(currentItem.text);
+                utterance.lang = targetVoice?.lang || 'en-US';
+                utterance.voice = targetVoice;
+                utterance.rate = speed;
+                utterance.pitch = 1.0; // 自然音高
+                utterance.volume = 1.0; // 最大音量
+                utterance.rate = Math.max(0.5, Math.min(2.0, speed)); // 限制速度范围
+                
+                currentUtterances.push(utterance);
+
+                // 发音结束后，延迟300ms播放下一句（模拟自然对话停顿）
+                utterance.onend = () => {
+                    if (!isPlaying) return;
+                    // 根据对话角色调整停顿时间：同角色停顿短(200ms)，不同角色停顿长(400ms)
+                    const nextSpeaker = currentIndex + 1 < dialogItems.length ? dialogItems[currentIndex + 1].speaker : '';
+                    const pauseTime = currentItem.speaker === nextSpeaker ? 200 : 300;
+                    
+                    playTimer = setTimeout(() => {
+                        currentIndex++;
+                        playNext();
+                    }, pauseTime);
+                };
+
+                // 发音出错时重置状态
+                utterance.onerror = (e) => {
+                    console.error('发音播放错误:', e);
+                    window.speechSynthesis.cancel();
+                    if (playTimer) clearTimeout(playTimer);
+                    playSentenceBtn.textContent = '播放对话发音';
+                    isPlaying = false;
+                    currentUtterances = [];
+                    playTimer = null;
+                };
+
+                // 播放当前句子
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // 先停止原有播放，再开始新的播放流程
+            window.speechSynthesis.cancel();
+            if (playTimer) clearTimeout(playTimer);
+            playNext();
+        });
+    </script>
+</body>
+</html>
