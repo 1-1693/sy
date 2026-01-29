@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地视频播放 - 时间戳+语音转文字</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://unpkg.com/html-docx-js@0.3.1/dist/html-docx-js.bundle.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#4D7C0F',
+                        secondary: '#65A30D',
+                        light: '#F5F7E9',
+                        lighter: '#F9FAF0',
+                        dark: '#365314',
+                        border: '#D4D9BE',
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .scrollbar-thin { scrollbar-width: thin; }
+            .scrollbar-thumb-rounded { scrollbar-color: rgba(77, 124, 15, 0.3) transparent; }
+            .backdrop-blur { backdrop-filter: blur(8px); }
+        }
+    </style>
+</head>
+<body class="bg-light text-dark min-h-screen font-sans">
+    <!-- 顶部导航 -->
+    <header class="bg-light/90 backdrop-blur border-b border-border shadow-sm py-3 px-4">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="flex items-center gap-2">
+                <i class="fa fa-play-circle text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold">本地视频播放系统</h1>
+            </div>
+            <span class="text-sm text-primary/80">时间戳管理 | 语音转文字导出Word</span>
+        </div>
+    </header>
+
+    <!-- 主内容 -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-6">
+        <!-- 视频播放区 -->
+        <section class="lg:w-2/3">
+            <div class="bg-lighter rounded-xl shadow-lg border border-border overflow-hidden">
+                <div class="relative pt-[56.25%] bg-black">
+                    <video id="videoPlayer" class="absolute inset-0 w-full h-full object-contain" controls></video>
+                </div>
+                <div class="p-4 flex flex-wrap gap-3 items-center justify-between">
+                    <div class="flex gap-3">
+                        <label for="videoFile" class="cursor-pointer bg-primary hover:bg-primary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition">
+                            <i class="fa fa-film"></i>选择视频
+                        </label>
+                        <input type="file" id="videoFile" accept="video/*" class="hidden">
+                        
+                        <button id="addTimestamp" class="bg-secondary hover:bg-secondary/90 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition opacity-50 cursor-not-allowed" disabled>
+                            <i class="fa fa-plus-circle"></i>添加时间戳
+                        </button>
+
+                        <!-- 语音识别启停按钮 -->
+                        <button id="toggleRecog" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition opacity-50 cursor-not-allowed" disabled>
+                            <i class="fa fa-microphone"></i>启动语音识别
+                        </button>
+                    </div>
+                    <div class="text-sm text-dark/70" id="videoInfo">未选择视频 | 需Chrome/Edge浏览器+麦克风权限</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 右侧功能区：时间戳 + 语音转文字 -->
+        <div class="lg:w-1/3 flex flex-col gap-6">
+            <!-- 时间戳区域 -->
+            <div class="bg-lighter rounded-xl shadow-lg border border-border flex flex-col h-full">
+                <div class="p-4 border-b border-border flex justify-between items-center">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <i class="fa fa-list-alt text-primary"></i>时间戳列表
+                    </h2>
+                    <div class="flex gap-2">
+                        <button id="exportTs" class="p-2 rounded-lg text-dark/70 hover:text-primary hover:bg-primary/10 transition opacity-50 cursor-not-allowed" disabled title="导出时间戳">
+                            <i class="fa fa-download"></i>
+                        </button>
+                        <button id="clearTs" class="p-2 rounded-lg text-dark/70 hover:text-primary hover:bg-primary/10 transition opacity-50 cursor-not-allowed" disabled title="清空时间戳">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="tsList" class="flex-grow overflow-y-auto p-3 scrollbar-thin scrollbar-thumb-rounded">
+                    <div class="text-dark/50 flex flex-col items-center justify-center h-48">
+                        <i class="fa fa-clock-o text-4xl mb-3 opacity-30 text-primary/60"></i>
+                        <p class="text-center">播放视频时添加时间戳</p>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-border bg-light/50 text-sm">
+                    <div class="flex justify-between">
+                        <span>当前时间: <span id="currTime" class="text-primary font-medium">00:00:00</span></span>
+                        <span>总数: <span id="tsCount" class="text-primary font-medium">0</span></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 语音转文字区域（时间戳下方） -->
+            <div class="bg-lighter rounded-xl shadow-lg border border-border flex flex-col h-full">
+                <div class="p-4 border-b border-border flex justify-between items-center">
+                    <h2 class="text-lg font-semibold flex items-center gap-2">
+                        <i class="fa fa-microphone text-primary"></i>视频语音文字
+                    </h2>
+                    <div class="flex gap-2">
+                        <!-- 导出Word按钮 -->
+                        <button id="exportWord" class="p-2 rounded-lg text-dark/70 hover:text-primary hover:bg-primary/10 transition opacity-50 cursor-not-allowed" disabled title="导出Word">
+                            <i class="fa fa-file-word-o text-lg"></i>
+                        </button>
+                        <!-- 清空文字按钮 -->
+                        <button id="clearText" class="p-2 rounded-lg text-dark/70 hover:text-primary hover:bg-primary/10 transition opacity-50 cursor-not-allowed" disabled title="清空文字">
+                            <i class="fa fa-trash text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="flex-grow p-4">
+                    <textarea id="speechText" class="w-full h-full bg-light border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30 scrollbar-thin resize-none" placeholder="语音识别的文字会显示在这里，支持手动编辑..."></textarea>
+                </div>
+                <div class="p-4 border-t border-border bg-light/50 text-sm flex justify-between items-center">
+                    <span id="recogStatus" class="text-dark/50">未开始识别 | 仅支持Chrome/Edge</span>
+                    <span>字符数: <span id="charCount" class="text-primary font-medium">0</span></span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 时间戳模态框 -->
+    <div id="tsModal" class="fixed inset-0 bg-black/20 flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-lighter rounded-xl shadow-xl w-full max-w-md border border-border transform scale-95 transition-transform duration-300">
+            <div class="p-5 border-b border-border flex justify-between items-center">
+                <h3 class="text-lg font-semibold text-primary">添加时间戳</h3>
+                <button id="closeModal" class="text-dark/50 hover:text-dark cursor-pointer"><i class="fa fa-times"></i></button>
+            </div>
+            <div class="p-5">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-dark/70 mb-1">时间点</label>
+                    <input type="text" id="tsTime" class="w-full bg-light border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30" readonly>
+                </div>
+                <div class="mb-5">
+                    <label class="block text-sm font-medium text-dark/70 mb-1">描述</label>
+                    <input type="text" id="tsDesc" class="w-full bg-light border border-border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="输入该时间点的描述...">
+                </div>
+                <button id="saveTs" class="w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-lg transition">保存时间戳</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部 -->
+    <footer class="mt-6 border-t border-border py-4 px-4 text-center text-dark/60 text-sm">
+        <p>本地视频播放系统 | 保留所有原有功能 | 语音转文字需外放视频声音并开启麦克风</p>
+    </footer>
+
+    <script>
+        // ========== 基础DOM元素 ==========
+        const videoPlayer = document.getElementById('videoPlayer');
+        const videoFile = document.getElementById('videoFile');
+        const videoInfo = document.getElementById('videoInfo');
+        // 时间戳相关
+        const addTimestamp = document.getElementById('addTimestamp');
+        const tsList = document.getElementById('tsList');
+        const currTime = document.getElementById('currTime');
+        const tsCount = document.getElementById('tsCount');
+        const exportTs = document.getElementById('exportTs');
+        const clearTs = document.getElementById('clearTs');
+        const tsModal = document.getElementById('tsModal');
+        const closeModal = document.getElementById('closeModal');
+        const saveTs = document.getElementById('saveTs');
+        const tsTime = document.getElementById('tsTime');
+        const tsDesc = document.getElementById('tsDesc');
+        // 语音识别相关
+        const toggleRecog = document.getElementById('toggleRecog');
+        const speechText = document.getElementById('speechText');
+        const exportWord = document.getElementById('exportWord');
+        const clearText = document.getElementById('clearText');
+        const recogStatus = document.getElementById('recogStatus');
+        const charCount = document.getElementById('charCount');
+        // 语音识别核心对象
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = SpeechRecognition ? new SpeechRecognition() : null;
+        let isRecogRunning = false; // 识别是否运行
+        let finalText = ''; // 最终识别文字
+        // 时间戳数据
+        let tsData = [];
+
+        // ========== 初始化 ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            // 视频选择事件
+            videoFile.addEventListener('change', loadVideo);
+            // 视频时间更新
+            videoPlayer.addEventListener('timeupdate', updateVideoTime);
+            // 时间戳按钮事件
+            addTimestamp.addEventListener('click', openTsModal);
+            closeModal.addEventListener('click', closeTsModal);
+            saveTs.addEventListener('click', saveTimestamp);
+            exportTs.addEventListener('click', exportTimestamp);
+            clearTs.addEventListener('click', clearAllTimestamp);
+            // 模态框点击外部关闭
+            tsModal.addEventListener('click', e => e.target === tsModal && closeTsModal());
+            // 语音相关事件
+            initSpeechRecog(); // 初始化语音识别
+            toggleRecog.addEventListener('click', switchRecog); // 启停识别
+            exportWord.addEventListener('click', exportToWord); // 导出Word
+            clearText.addEventListener('click', clearSpeechText); // 清空文字
+            speechText.addEventListener('input', updateCharCount); // 更新字符数
+        });
+
+        // ========== 视频相关功能 ==========
+        // 加载视频
+        function loadVideo(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const videoUrl = URL.createObjectURL(file);
+            videoPlayer.src = videoUrl;
+            videoInfo.textContent = `${file.name} (${formatFileSize(file.size)}) | 播放后可添加时间戳/启动语音识别`;
+            // 启用所有按钮
+            [addTimestamp, exportTs, clearTs, toggleRecog].forEach(btn => {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            });
+            // 重置时间戳
+            tsData = [];
+            renderTsList();
+        }
+
+        // 更新视频当前时间显示
+        function updateVideoTime() {
+            currTime.textContent = formatSecToTime(videoPlayer.currentTime);
+        }
+
+        // 格式化秒数为 HH:MM:SS
+        function formatSecToTime(sec) {
+            const h = Math.floor(sec / 3600).toString().padStart(2, '0');
+            const m = Math.floor((sec % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(sec % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        }
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return (bytes / Math.pow(k, i)).toFixed(2) + ' ' + sizes[i];
+        }
+
+        // ========== 时间戳模态框 ==========
+        function openTsModal() {
+            const time = formatSecToTime(videoPlayer.currentTime);
+            tsTime.value = time;
+            tsDesc.value = '';
+            tsDesc.focus();
+            // 显示模态框
+            tsModal.classList.remove('hidden');
+            setTimeout(() => {
+                tsModal.classList.add('opacity-100');
+                tsModal.querySelector('div').classList.remove('scale-95');
+                tsModal.querySelector('div').classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeTsModal() {
+            tsModal.classList.remove('opacity-100');
+            tsModal.querySelector('div').classList.remove('scale-100');
+            tsModal.querySelector('div').classList.add('scale-95');
+            setTimeout(() => tsModal.classList.add('hidden'), 300);
+        }
+
+        // ========== 时间戳增删改查 ==========
+        function saveTimestamp() {
+            const time = videoPlayer.currentTime;
+            const formatTime = formatSecToTime(time);
+            const desc = tsDesc.value.trim() || `时间点 ${tsData.length + 1}`;
+            // 添加数据
+            tsData.push({ id: Date.now(), time, formatTime, desc });
+            // 排序并渲染
+            tsData.sort((a, b) => a.time - b.time);
+            renderTsList();
+            // 关闭模态框
+            closeTsModal();
+        }
+
+        // 渲染时间戳列表
+        function renderTsList() {
+            if (tsData.length === 0) {
+                tsList.innerHTML = `
+                    <div class="text-dark/50 flex flex-col items-center justify-center h-48">
+                        <i class="fa fa-clock-o text-4xl mb-3 opacity-30 text-primary/60"></i>
+                        <p class="text-center">暂无时间戳<br>播放视频时添加</p>
+                    </div>
+                `;
+                tsCount.textContent = '0';
+                return;
+            }
+            tsList.innerHTML = '';
+            tsData.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'bg-light hover:bg-primary/5 border border-border rounded-lg p-3 mb-2 cursor-pointer transition flex justify-between items-center group';
+                div.dataset.id = item.id;
+                div.dataset.time = item.time;
+                div.innerHTML = `
+                    <div>
+                        <div class="font-medium text-primary">${item.formatTime}</div>
+                        <div class="text-sm text-dark/70 mt-1">${item.desc}</div>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                        <button class="edit-ts p-1 hover:text-primary" title="编辑"><i class="fa fa-pencil"></i></button>
+                        <button class="del-ts p-1 hover:text-red-600" title="删除"><i class="fa fa-trash"></i></button>
+                    </div>
+                `;
+                // 点击跳转到该时间
+                div.addEventListener('click', e => {
+                    if (!e.target.closest('button')) {
+                        videoPlayer.currentTime = item.time;
+                        videoPlayer.play();
+                        // 高亮
+                        document.querySelectorAll('#tsList > div').forEach(el => el.classList.remove('ring-2', 'ring-primary'));
+                        div.classList.add('ring-2', 'ring-primary');
+                        setTimeout(() => div.classList.remove('ring-2', 'ring-primary'), 3000);
+                    }
+                });
+                // 编辑
+                div.querySelector('.edit-ts').addEventListener('click', e => {
+                    e.stopPropagation();
+                    videoPlayer.currentTime = item.time;
+                    tsTime.value = item.formatTime;
+                    tsDesc.value = item.desc;
+                    openTsModal();
+                    // 重写保存事件
+                    const originalSave = saveTs.onclick;
+                    saveTs.onclick = () => {
+                        tsData = tsData.filter(t => t.id !== item.id);
+                        saveTimestamp();
+                        saveTs.onclick = originalSave;
+                    };
+                });
+                // 删除
+                div.querySelector('.del-ts').addEventListener('click', e => {
+                    e.stopPropagation();
+                    tsData = tsData.filter(t => t.id !== item.id);
+                    renderTsList();
+                });
+                tsList.appendChild(div);
+            });
+            tsCount.textContent = tsData.length;
+        }
+
+        // 导出时间戳
+        function exportTimestamp() {
+            if (tsData.length === 0) return alert('暂无时间戳可导出');
+            let content = tsData.map(item => `${item.formatTime}|${item.desc}`).join('\n');
+            const blob = new Blob([content], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = videoFile.files[0] ? `${videoFile.files[0].name.replace(/\.\w+$/, '')}_时间戳.txt` : '视频时间戳.txt';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        // 清空时间戳
+        function clearAllTimestamp() {
+            if (tsData.length === 0) return;
+            if (confirm('确定清空所有时间戳？')) {
+                tsData = [];
+                renderTsList();
+            }
+        }
+
+        // ========== 语音识别核心功能（修复后） ==========
+        function initSpeechRecog() {
+            if (!recognition) {
+                recogStatus.textContent = '❌ 浏览器不支持！请用Chrome/Edge';
+                return;
+            }
+            // 识别配置（中文、连续识别、显示临时结果）
+            recognition.lang = 'zh-CN';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            // 识别结果回调
+            recognition.onresult = e => {
+                let tempText = '';
+                // 遍历结果：final是确定结果，非final是临时结果
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    if (e.results[i].isFinal) finalText += e.results[i][0].transcript + ' ';
+                    else tempText += e.results[i][0].transcript;
+                }
+                // 更新文本框
+                speechText.value = finalText + tempText;
+                updateCharCount();
+            };
+            // 识别开始
+            recognition.onstart = () => {
+                isRecogRunning = true;
+                recogStatus.textContent = '🔊 正在识别中（请外放视频声音）';
+                // 启用导出/清空按钮
+                [exportWord, clearText].forEach(btn => {
+                    btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                });
+                // 按钮样式切换
+                toggleRecog.innerHTML = '<i class="fa fa-stop"></i>停止语音识别';
+                toggleRecog.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                toggleRecog.classList.add('bg-red-600', 'hover:bg-red-700');
+            };
+            // 识别结束/错误：自动重启（保持连续识别）
+            recognition.onend = () => {
+                if (isRecogRunning) setTimeout(() => recognition.start(), 100);
+                else {
+                    recogStatus.textContent = '✅ 识别已停止';
+                    toggleRecog.innerHTML = '<i class="fa fa-microphone"></i>启动语音识别';
+                    toggleRecog.classList.remove('bg-red-600', 'hover:bg-red-700');
+                    toggleRecog.classList.add('bg-blue-600', 'hover:bg-blue-700');
+                }
+            };
+            // 识别错误提示
+            recognition.onerror = e => {
+                let msg = '识别错误：';
+                switch (e.error) {
+                    case 'not-allowed': msg += '麦克风权限被拒绝，请在浏览器设置中允许'; break;
+                    case 'no-speech': msg += '未检测到声音，请外放视频并调大音量'; break;
+                    default: msg += e.error;
+                }
+                recogStatus.textContent = `❌ ${msg}`;
+                console.error('语音识别错误：', e);
+            };
+        }
+
+        // 切换语音识别启停
+        function switchRecog() {
+            if (!isRecogRunning) {
+                // 启动：先赋值当前文本框内容（避免手动编辑后丢失）
+                finalText = speechText.value.trim();
+                try {
+                    recognition.start();
+                } catch (err) {
+                    alert('启动失败：请检查麦克风权限或浏览器版本');
+                    recogStatus.textContent = '❌ 启动失败：' + err.message;
+                }
+            } else {
+                // 停止
+                isRecogRunning = false;
+                recognition.stop();
+            }
+        }
+
+        // 导出文字为Word
+        function exportToWord() {
+            const text = speechText.value.trim();
+            if (!text) return alert('暂无文字可导出');
+            // 构建Word的HTML内容（适配宋体）
+            const html = `
+                <html>
+                <head><meta charset="UTF-8"><style>body{font-family:SimSun,宋体;font-size:14px;line-height:1.8;}</style></head>
+                <body>${text.replace(/\n/g, '<br>')}</body>
+                </html>
+            `;
+            try {
+                const blob = htmlDocx.asBlob(html);
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = videoFile.files[0] ? `${videoFile.files[0].name.replace(/\.\w+$/, '')}_语音文字.docx` : '视频语音文字.docx';
+                a.click();
+                URL.revokeObjectURL(a.href);
+            } catch (err) {
+                alert('导出Word失败：' + err.message);
+            }
+        }
+
+        // 清空语音文字
+        function clearSpeechText() {
+            if (!speechText.value.trim()) return;
+            if (confirm('确定清空语音文字？')) {
+                speechText.value = '';
+                finalText = '';
+                updateCharCount();
+            }
+        }
+
+        // 更新字符数
+        function updateCharCount() {
+            charCount.textContent = speechText.value.length;
+        }
+    </script>
+</body>
+</html>
