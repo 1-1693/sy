@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词学习工具</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f5f7fa;
+            color: #333;
+            line-height: 1.5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            width: 900px;
+            max-width: 90vw;
+            display: flex;
+            gap: 15px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        
+        .left-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .right-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 220px;
+        }
+        
+        .card {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            padding: 15px;
+            transition: all 0.3s ease;
+            border: 1px solid #eef1f6;
+        }
+        
+        .section-title {
+            font-size: 0.95rem;
+            color: #3498db;
+            margin-bottom: 8px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #f0f3f8;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .section-title i {
+            font-size: 0.95rem;
+        }
+        
+        /* 单词展示框样式 */
+        #word-display-container {
+            flex: 1;
+        }
+        
+        #word-display {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            height: 100%;
+        }
+        
+        .word-main {
+            margin-bottom: 10px;
+        }
+        
+        .word-text {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 5px;
+            line-height: 1.2;
+        }
+        
+        .phonetic {
+            font-size: 1rem;
+            color: #e74c3c;
+            font-style: italic;
+            margin-bottom: 5px;
+        }
+        
+        .meaning {
+            font-size: 1.2rem;
+            color: #27ae60;
+            margin-bottom: 8px;
+            font-weight: 600;
+            line-height: 1.3;
+        }
+        
+        .examples {
+            text-align: left;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #eee;
+        }
+        
+        .example-item {
+            margin-bottom: 8px;
+            padding: 8px 10px;
+            background-color: #f8fafc;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid #3498db;
+            font-size: 0.85rem;
+        }
+        
+        .example-item:hover {
+            background-color: #e8f4fc;
+            transform: translateX(3px);
+        }
+        
+        .example-text {
+            color: #2c3e50;
+            margin-bottom: 3px;
+            line-height: 1.3;
+        }
+        
+        .example-translation {
+            color: #7f8c8d;
+            font-size: 0.8rem;
+            line-height: 1.2;
+        }
+        
+        /* 单词框样式 - 10个单词，2行5列 */
+        #words-container {
+            flex: 1;
+        }
+        
+        .word-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 8px;
+            height: 100%;
+            width: 100%;
+        }
+        
+        .word-card {
+            background-color: #f8fafc;
+            border-radius: 6px;
+            padding: 10px 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid #e8edf2;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+        
+        .word-card:hover {
+            background-color: #e8f4fc;
+            border-color: #3498db;
+            transform: translateY(-2px);
+            box-shadow: 0 3px 8px rgba(52, 152, 219, 0.15);
+        }
+        
+        .word-card.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #2980b9;
+        }
+        
+        .word-card-text {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+            line-height: 1.2;
+        }
+        
+        .word-card-phonetic {
+            font-size: 0.75rem;
+            color: #7f8c8d;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            width: 100%;
+            text-align: center;
+            line-height: 1.1;
+        }
+        
+        .word-card.active .word-card-phonetic {
+            color: #e0f0ff;
+        }
+        
+        /* 功能框样式 */
+        #controls-container {
+            flex: 1;
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        
+        .control-label {
+            font-weight: 600;
+            color: #555;
+            font-size: 0.8rem;
+        }
+        
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        /* 图标按钮样式 */
+        .icon-btn {
+            padding: 10px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 40px;
+            position: relative;
+        }
+        
+        .icon-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .icon-btn:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        
+        .icon-btn-secondary {
+            background-color: #2ecc71;
+        }
+        
+        .icon-btn-secondary:hover {
+            background-color: #27ae60;
+        }
+        
+        .icon-btn-danger {
+            background-color: #e74c3c;
+        }
+        
+        .icon-btn-danger:hover {
+            background-color: #c0392b;
+        }
+        
+        .icon-btn-purple {
+            background-color: #9b59b6;
+        }
+        
+        .icon-btn-purple:hover {
+            background-color: #8e44ad;
+        }
+        
+        .icon-btn-orange {
+            background-color: #f39c12;
+        }
+        
+        .icon-btn-orange:hover {
+            background-color: #e67e22;
+        }
+        
+        .icon-btn.active {
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+        
+        .icon-btn i {
+            font-size: 1rem;
+        }
+        
+        .icon-buttons-row {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .icon-buttons-row .icon-btn {
+            flex: 1;
+        }
+        
+        select, input[type="range"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background-color: white;
+            width: 100%;
+            font-size: 0.85rem;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .slider-value {
+            min-width: 25px;
+            text-align: center;
+            font-weight: 600;
+            color: #3498db;
+            font-size: 0.85rem;
+        }
+        
+        .status-bar {
+            margin-top: 10px;
+            padding: 8px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: #666;
+            text-align: center;
+            border-left: 3px solid #3498db;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* 文件上传下载样式 */
+        .file-input {
+            width: 0.1px;
+            height: 0.1px;
+            opacity: 0;
+            overflow: hidden;
+            position: absolute;
+            z-index: -1;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+                width: 95%;
+                padding: 15px;
+            }
+            
+            .left-panel {
+                width: 100%;
+            }
+            
+            .right-panel {
+                width: 100%;
+            }
+            
+            .word-grid {
+                grid-template-columns: repeat(5, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .word-grid {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(4, 1fr);
+                gap: 6px;
+            }
+            
+            .card {
+                padding: 12px;
+            }
+            
+            .word-text {
+                font-size: 1.5rem;
+            }
+            
+            .meaning {
+                font-size: 1rem;
+            }
+        }
+        
+        @media (max-width: 400px) {
+            .word-grid {
+                grid-template-columns: repeat(2, 1fr);
+                grid-template-rows: repeat(5, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 左侧面板：单词展示框 + 单词框 -->
+        <div class="left-panel">
+            <!-- 单词展示框 -->
+            <div class="card" id="word-display-container">
+                <div class="section-title">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    <span>单词展示</span>
+                </div>
+                <div id="word-display">
+                    <div class="word-main">
+                        <div class="word-text" id="current-word">Welcome</div>
+                        <div class="phonetic" id="current-phonetic">/ˈwɛlkəm/</div>
+                        <div class="meaning" id="current-meaning">欢迎</div>
+                    </div>
+                    
+                    <div class="examples" id="examples-container">
+                        <div class="example-item" data-text="Welcome to our English learning tool!">
+                            <div class="example-text">Welcome to our English learning tool!</div>
+                            <div class="example-translation">欢迎使用我们的英语学习工具！</div>
+                        </div>
+                        <div class="example-item" data-text="Click on any word card to start learning.">
+                            <div class="example-text">Click on any word card to start learning.</div>
+                            <div class="example-translation">点击任意单词卡牌开始学习。</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 单词框 -->
+            <div class="card" id="words-container">
+                <div class="section-title">
+                    <i class="fas fa-th"></i>
+                    <span>单词卡牌 (2×5)</span>
+                </div>
+                <div class="word-grid" id="word-grid">
+                    <!-- 单词卡牌将通过JavaScript动态生成 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 右侧面板：功能框 -->
+        <div class="right-panel">
+            <div class="card" id="controls-container">
+                <div class="section-title">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>功能控制</span>
+                </div>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <div class="control-label">播放控制</div>
+                        <div class="icon-buttons-row">
+                            <button class="icon-btn" id="random-word-btn" title="随机播放单词">
+                                <i class="fas fa-random"></i>
+                            </button>
+                            <button class="icon-btn icon-btn-secondary" id="random-meaning-btn" title="随机播放释义">
+                                <i class="fas fa-random"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">深度记忆</div>
+                        <div class="icon-buttons-row">
+                            <button class="icon-btn icon-btn-orange" id="deep-memory-btn" title="深度记忆训练">
+                                <i class="fas fa-brain"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">发音间隔 (秒)</div>
+                        <div class="slider-container">
+                            <input type="range" id="interval-slider" min="1" max="10" value="3">
+                            <span class="slider-value" id="interval-value">3</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">发音速度</div>
+                        <div class="slider-container">
+                            <input type="range" id="rate-slider" min="0.5" max="2" step="0.1" value="1">
+                            <span class="slider-value" id="rate-value">1.0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">发音人音色</div>
+                        <select id="voice-select">
+                            <option value="">系统默认</option>
+                        </select>
+                    </div>
+                    
+                    <div class="control-group">
+                        <div class="control-label">数据管理</div>
+                        <div class="icon-buttons-row">
+                            <label class="icon-btn icon-btn-purple" title="导入Excel文件">
+                                <input type="file" id="excel-file" class="file-input" accept=".xlsx,.xls">
+                                <i class="fas fa-file-import"></i>
+                            </label>
+                            <button class="icon-btn icon-btn-danger" id="export-btn" title="导出Excel文件">
+                                <i class="fas fa-file-export"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="status-bar" id="status-bar">
+                        <i class="fas fa-info-circle"></i> 已加载10个单词，点击单词卡牌开始学习
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 初始单词数据 - 减少到10个单词
+        const initialWords = [
+            { word: "abandon", phonetic: "/əˈbændən/", meaning: "放弃，抛弃", examples: ["He abandoned his car and continued on foot.|他弃车继续步行", "The project was abandoned due to lack of funding.|该项目因缺乏资金而被放弃"] },
+            { word: "benefit", phonetic: "/ˈbenɪfɪt/", meaning: "利益，好处", examples: ["Regular exercise has many health benefits.|经常锻炼对健康有很多好处", "The new policy will benefit thousands of people.|新政策将使数千人受益"] },
+            { word: "challenge", phonetic: "/ˈtʃæləndʒ/", meaning: "挑战", examples: ["She likes her new job because it's a challenge.|她喜欢新工作，因为它很有挑战性", "The company faces many challenges in the coming year.|公司来年面临许多挑战"] },
+            { word: "dilemma", phonetic: "/dɪˈlemə/", meaning: "困境，进退两难", examples: ["She faced a dilemma: stay with her family or move abroad.|她面临一个两难选择：留在家人身边还是移居国外", "The doctor was in a dilemma about telling the patient the truth.|医生对于是否告诉病人实情感到进退两难"] },
+            { word: "efficient", phonetic: "/ɪˈfɪʃnt/", meaning: "高效的", examples: ["The new system is more efficient than the old one.|新系统比旧系统更高效", "She is an efficient worker who gets things done quickly.|她是个高效的工作人员，做事很快"] },
+            { word: "frequent", phonetic: "/ˈfriːkwənt/", meaning: "频繁的", examples: ["He is a frequent visitor to the library.|他是图书馆的常客", "There have been frequent complaints about the noise.|关于噪音的投诉频繁发生"] },
+            { word: "gratitude", phonetic: "/ˈɡrætɪtjuːd/", meaning: "感激", examples: ["I'd like to express my gratitude for your help.|我想对您的帮助表达感激之情", "She felt a deep sense of gratitude towards her teacher.|她对老师怀有深深的感激之情"] },
+            { word: "habit", phonetic: "/ˈhæbɪt/", meaning: "习惯", examples: ["Smoking is a bad habit that is hard to break.|吸烟是个很难戒掉的坏习惯", "It's a good habit to read before going to bed.|睡前阅读是个好习惯"] },
+            { word: "ignorant", phonetic: "/ˈɪɡnərənt/", meaning: "无知的", examples: ["He was ignorant of the basic facts.|他对基本事实一无所知", "It's better to ask questions than to remain ignorant.|提出问题总比保持无知要好"] },
+            { word: "jealous", phonetic: "/ˈdʒeləs/", meaning: "嫉妒的", examples: ["She was jealous of her friend's success.|她嫉妒朋友的成功", "He felt jealous when he saw his girlfriend talking to another man.|看到女友和另一个男人说话，他感到嫉妒"] }
+        ];
+
+        // 应用状态
+        let words = [...initialWords];
+        let currentWordIndex = 0;
+        let speechSynth = window.speechSynthesis;
+        let voices = [];
+        let currentVoice = null;
+        let speechRate = 1.0;
+        let speechInterval = 3000; // 3秒
+        let isPlayingRandom = false;
+        let randomMode = ''; // 'word' 或 'meaning'
+        let randomTimer = null;
+        let isDeepMemoryPlaying = false;
+        let deepMemoryTimer = null;
+
+        // DOM元素
+        const wordDisplay = document.getElementById('word-display');
+        const currentWordElement = document.getElementById('current-word');
+        const currentPhoneticElement = document.getElementById('current-phonetic');
+        const currentMeaningElement = document.getElementById('current-meaning');
+        const examplesContainer = document.getElementById('examples-container');
+        const wordGrid = document.getElementById('word-grid');
+        const randomWordBtn = document.getElementById('random-word-btn');
+        const randomMeaningBtn = document.getElementById('random-meaning-btn');
+        const deepMemoryBtn = document.getElementById('deep-memory-btn');
+        const intervalSlider = document.getElementById('interval-slider');
+        const intervalValue = document.getElementById('interval-value');
+        const rateSlider = document.getElementById('rate-slider');
+        const rateValue = document.getElementById('rate-value');
+        const voiceSelect = document.getElementById('voice-select');
+        const exportBtn = document.getElementById('export-btn');
+        const excelFileInput = document.getElementById('excel-file');
+        const statusBar = document.getElementById('status-bar');
+
+        // 初始化应用
+        function initApp() {
+            // 加载发音人列表
+            loadVoices();
+            
+            // 如果语音合成API支持，在发音人列表变化时重新加载
+            if (speechSynth.onvoiceschanged !== undefined) {
+                speechSynth.onvoiceschanged = loadVoices;
+            }
+            
+            // 初始化单词卡牌
+            renderWordCards();
+            
+            // 显示第一个单词
+            displayWord(0);
+            
+            // 设置事件监听器
+            setupEventListeners();
+            
+            // 更新状态栏
+            updateStatusBar(`已加载 ${words.length} 个单词，点击单词卡牌开始学习`);
+        }
+
+        // 加载发音人列表
+        function loadVoices() {
+            // 等待语音合成API就绪
+            setTimeout(() => {
+                voices = speechSynth.getVoices();
+                voiceSelect.innerHTML = '<option value="">系统默认</option>';
+                
+                voices.forEach((voice, index) => {
+                    // 优先显示中文和英文发音人
+                    if (voice.lang.includes('en') || voice.lang.includes('zh')) {
+                        const option = document.createElement('option');
+                        option.value = index;
+                        option.textContent = `${voice.name} (${voice.lang})`;
+                        voiceSelect.appendChild(option);
+                    }
+                });
+                
+                // 默认选择英文发音人
+                const englishVoiceIndex = voices.findIndex(voice => 
+                    voice.lang.includes('en') && voice.name.includes('Google')
+                );
+                if (englishVoiceIndex !== -1) {
+                    voiceSelect.value = englishVoiceIndex;
+                    currentVoice = voices[englishVoiceIndex];
+                }
+            }, 100);
+        }
+
+        // 渲染单词卡牌
+        function renderWordCards() {
+            wordGrid.innerHTML = '';
+            
+            words.forEach((wordData, index) => {
+                const wordCard = document.createElement('div');
+                wordCard.className = 'word-card';
+                wordCard.dataset.index = index;
+                
+                wordCard.innerHTML = `
+                    <div class="word-card-text">${wordData.word}</div>
+                    <div class="word-card-phonetic">${wordData.phonetic}</div>
+                `;
+                
+                wordCard.addEventListener('click', () => {
+                    displayWord(index);
+                    speakText(wordData.word);
+                    
+                    // 更新激活状态
+                    document.querySelectorAll('.word-card').forEach(card => {
+                        card.classList.remove('active');
+                    });
+                    wordCard.classList.add('active');
+                });
+                
+                wordGrid.appendChild(wordCard);
+            });
+        }
+
+        // 显示单词
+        function displayWord(index) {
+            if (index < 0 || index >= words.length) return;
+            
+            currentWordIndex = index;
+            const wordData = words[index];
+            
+            // 更新单词展示框
+            currentWordElement.textContent = wordData.word;
+            currentPhoneticElement.textContent = wordData.phonetic;
+            currentMeaningElement.textContent = wordData.meaning;
+            
+            // 更新例句
+            examplesContainer.innerHTML = '';
+            if (wordData.examples && wordData.examples.length > 0) {
+                wordData.examples.forEach(example => {
+                    const [english, chinese] = example.split('|');
+                    const exampleItem = document.createElement('div');
+                    exampleItem.className = 'example-item';
+                    exampleItem.dataset.text = english;
+                    
+                    exampleItem.innerHTML = `
+                        <div class="example-text">${english}</div>
+                        <div class="example-translation">${chinese}</div>
+                    `;
+                    
+                    exampleItem.addEventListener('click', () => {
+                        speakText(english);
+                    });
+                    
+                    examplesContainer.appendChild(exampleItem);
+                });
+            } else {
+                examplesContainer.innerHTML = '<div class="example-item"><div class="example-text">暂无例句</div></div>';
+            }
+            
+            // 更新激活的单词卡牌
+            document.querySelectorAll('.word-card').forEach((card, i) => {
+                if (i === index) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+            
+            updateStatusBar(`正在显示: ${wordData.word} - ${wordData.meaning}`);
+        }
+
+        // 朗读文本
+        function speakText(text, rate = speechRate, voice = currentVoice) {
+            if (!speechSynth) return null;
+            
+            // 停止当前正在进行的朗读
+            speechSynth.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = rate;
+            
+            if (voice) {
+                utterance.voice = voice;
+            }
+            
+            speechSynth.speak(utterance);
+            
+            return utterance;
+        }
+
+        // 异步朗读文本，返回Promise
+        function speakTextAsync(text, rate = speechRate, voice = currentVoice) {
+            return new Promise((resolve) => {
+                if (!speechSynth) {
+                    resolve();
+                    return;
+                }
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = rate;
+                
+                if (voice) {
+                    utterance.voice = voice;
+                }
+                
+                utterance.onend = () => {
+                    resolve();
+                };
+                
+                utterance.onerror = () => {
+                    resolve();
+                };
+                
+                speechSynth.speak(utterance);
+            });
+        }
+
+        // 播放随机单词 - 修复：使用发音间隔控制
+        function playRandomWord() {
+            if (!isPlayingRandom || randomMode !== 'word') return;
+            
+            // 卡牌随机原则：确保每个单词都被播放过一轮后才重复
+            let availableIndices = [];
+            
+            // 检查是否有未播放的单词
+            const playedIndices = JSON.parse(sessionStorage.getItem('playedWordIndices') || '[]');
+            
+            for (let i = 0; i < words.length; i++) {
+                if (!playedIndices.includes(i)) {
+                    availableIndices.push(i);
+                }
+            }
+            
+            // 如果所有单词都播放过了，重置
+            if (availableIndices.length === 0) {
+                sessionStorage.setItem('playedWordIndices', '[]');
+                availableIndices = [...Array(words.length).keys()];
+                updateStatusBar("已播放完一轮单词，重新开始");
+            }
+            
+            // 随机选择一个单词
+            const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+            
+            // 记录已播放的单词
+            playedIndices.push(randomIndex);
+            sessionStorage.setItem('playedWordIndices', JSON.stringify(playedIndices));
+            
+            // 显示并朗读单词
+            displayWord(randomIndex);
+            const utterance = speakText(words[randomIndex].word, speechRate, currentVoice);
+            
+            // 使用发音间隔控制下一个单词的播放
+            if (utterance) {
+                utterance.onend = () => {
+                    // 如果正在随机播放，安排下一个
+                    if (isPlayingRandom && randomMode === 'word') {
+                        randomTimer = setTimeout(() => {
+                            randomTimer = null;
+                            playRandomWord();
+                        }, speechInterval);
+                    }
+                };
+            }
+        }
+
+        // 播放随机释义 - 修改为只发音中文释义，不发音单词
+        function playRandomMeaning() {
+            if (!isPlayingRandom || randomMode !== 'meaning') return;
+            
+            // 卡牌随机原则：确保每个释义都被播放过一轮后才重复
+            let availableIndices = [];
+            
+            // 检查是否有未播放的释义
+            const playedIndices = JSON.parse(sessionStorage.getItem('playedMeaningIndices') || '[]');
+            
+            for (let i = 0; i < words.length; i++) {
+                if (!playedIndices.includes(i)) {
+                    availableIndices.push(i);
+                }
+            }
+            
+            // 如果所有释义都播放过了，重置
+            if (availableIndices.length === 0) {
+                sessionStorage.setItem('playedMeaningIndices', '[]');
+                availableIndices = [...Array(words.length).keys()];
+                updateStatusBar("已播放完一轮释义，重新开始");
+            }
+            
+            // 随机选择一个单词
+            const randomIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+            
+            // 记录已播放的释义
+            playedIndices.push(randomIndex);
+            sessionStorage.setItem('playedMeaningIndices', JSON.stringify(playedIndices));
+            
+            // 显示单词但只朗读释义（不朗读单词）
+            displayWord(randomIndex);
+            
+            // 尝试查找中文发音人
+            const chineseVoice = voices.find(voice => voice.lang.includes('zh'));
+            const utterance = speakText(words[randomIndex].meaning, speechRate, chineseVoice || currentVoice);
+            
+            // 使用发音间隔控制下一个释义的播放
+            if (utterance) {
+                utterance.onend = () => {
+                    // 如果正在随机播放，安排下一个
+                    if (isPlayingRandom && randomMode === 'meaning') {
+                        randomTimer = setTimeout(() => {
+                            randomTimer = null;
+                            playRandomMeaning();
+                        }, speechInterval);
+                    }
+                };
+            }
+        }
+
+        // 开始/停止随机播放
+        function toggleRandomPlay(mode) {
+            if (isPlayingRandom && randomMode === mode) {
+                // 停止当前播放
+                isPlayingRandom = false;
+                randomMode = '';
+                if (randomTimer) {
+                    clearTimeout(randomTimer);
+                    randomTimer = null;
+                }
+                speechSynth.cancel();
+                
+                if (mode === 'word') {
+                    randomWordBtn.classList.remove('active');
+                    randomWordBtn.title = "随机播放单词";
+                    updateStatusBar("已停止随机播放单词");
+                } else {
+                    randomMeaningBtn.classList.remove('active');
+                    randomMeaningBtn.title = "随机播放释义";
+                    updateStatusBar("已停止随机播放释义");
+                }
+            } else {
+                // 停止之前的随机播放
+                if (isPlayingRandom) {
+                    isPlayingRandom = false;
+                    if (randomTimer) {
+                        clearTimeout(randomTimer);
+                        randomTimer = null;
+                    }
+                    speechSynth.cancel();
+                    
+                    if (randomMode === 'word') {
+                        randomWordBtn.classList.remove('active');
+                        randomWordBtn.title = "随机播放单词";
+                    } else {
+                        randomMeaningBtn.classList.remove('active');
+                        randomMeaningBtn.title = "随机播放释义";
+                    }
+                }
+                
+                // 开始新的随机播放
+                isPlayingRandom = true;
+                randomMode = mode;
+                
+                // 重置播放记录
+                if (mode === 'word') {
+                    sessionStorage.setItem('playedWordIndices', '[]');
+                    randomWordBtn.classList.add('active');
+                    randomWordBtn.title = "停止随机播放";
+                    updateStatusBar("开始随机播放单词 (卡牌随机原则)");
+                    playRandomWord();
+                } else {
+                    sessionStorage.setItem('playedMeaningIndices', '[]');
+                    randomMeaningBtn.classList.add('active');
+                    randomMeaningBtn.title = "停止随机播放";
+                    updateStatusBar("开始随机播放释义 (卡牌随机原则)");
+                    playRandomMeaning();
+                }
+            }
+        }
+
+        // 深度记忆功能 - 修改：字母发音节奏改为5，语速改为1.8倍
+        async function playDeepMemory() {
+            if (isDeepMemoryPlaying) {
+                // 如果正在播放，则停止
+                isDeepMemoryPlaying = false;
+                if (deepMemoryTimer) {
+                    clearTimeout(deepMemoryTimer);
+                    deepMemoryTimer = null;
+                }
+                speechSynth.cancel();
+                deepMemoryBtn.classList.remove('active');
+                deepMemoryBtn.title = "深度记忆训练";
+                updateStatusBar("已停止深度记忆训练");
+                return;
+            }
+            
+            // 开始深度记忆训练
+            isDeepMemoryPlaying = true;
+            deepMemoryBtn.classList.add('active');
+            deepMemoryBtn.title = "停止深度记忆";
+            
+            const wordData = words[currentWordIndex];
+            const currentWord = wordData.word;
+            const currentMeaning = wordData.meaning;
+            
+            // 尝试查找中文发音人
+            const chineseVoice = voices.find(voice => voice.lang.includes('zh'));
+            
+            // 停止其他播放
+            if (isPlayingRandom) {
+                isPlayingRandom = false;
+                if (randomTimer) {
+                    clearTimeout(randomTimer);
+                    randomTimer = null;
+                }
+                randomWordBtn.classList.remove('active');
+                randomMeaningBtn.classList.remove('active');
+            }
+            
+            try {
+                // 1. 2遍正常语速发音单词（正常速度1.0，间隔500ms）
+                updateStatusBar("深度记忆: 2遍正常语速单词发音");
+                for (let i = 0; i < 2; i++) {
+                    if (!isDeepMemoryPlaying) break;
+                    await speakTextAsync(currentWord, 1.0, currentVoice);
+                    if (i < 1) await new Promise(resolve => setTimeout(resolve, 500)); // 间隔500ms
+                }
+                
+                if (!isDeepMemoryPlaying) return;
+                
+                // 2. 15遍快速语速节奏（节奏为5，语速1.8倍，间隔200ms）
+                updateStatusBar("深度记忆: 15遍快速语速单词发音");
+                for (let i = 0; i < 15; i++) {
+                    if (!isDeepMemoryPlaying) break;
+                    await speakTextAsync(currentWord, 1.8, currentVoice); // 快速语速1.8倍
+                    if (i < 14) await new Promise(resolve => setTimeout(resolve, 200)); // 节奏为5，间隔200ms
+                }
+                
+                if (!isDeepMemoryPlaying) return;
+                
+                // 3. 1遍正常语速单词发音（正常速度1.0）
+                updateStatusBar("深度记忆: 1遍正常语速单词发音");
+                await speakTextAsync(currentWord, 1.0, currentVoice);
+                await new Promise(resolve => setTimeout(resolve, 500)); // 间隔500ms
+                
+                if (!isDeepMemoryPlaying) return;
+                
+                // 4. 各个字母发音（节奏为5，语速1.8倍，间隔100ms）
+                updateStatusBar("深度记忆: 各个字母发音");
+                for (let i = 0; i < currentWord.length; i++) {
+                    if (!isDeepMemoryPlaying) break;
+                    const letter = currentWord[i].toUpperCase();
+                    await speakTextAsync(letter, 1.8, currentVoice); // 修改：字母发音1.8倍
+                    if (i < currentWord.length - 1) await new Promise(resolve => setTimeout(resolve, 100)); // 修改：节奏为5，间隔100ms
+                }
+                
+                if (!isDeepMemoryPlaying) return;
+                
+                await new Promise(resolve => setTimeout(resolve, 500)); // 间隔500ms
+                
+                // 5. 1遍正常语速单词发音（正常速度1.0）
+                updateStatusBar("深度记忆: 1遍正常语速单词发音");
+                await speakTextAsync(currentWord, 1.0, currentVoice);
+                await new Promise(resolve => setTimeout(resolve, 500)); // 间隔500ms
+                
+                if (!isDeepMemoryPlaying) return;
+                
+                // 6. 中文释义发音（正常速度1.0）
+                updateStatusBar("深度记忆: 中文释义发音");
+                await speakTextAsync(currentMeaning, 1.0, chineseVoice || currentVoice);
+                
+                updateStatusBar("深度记忆训练完成: " + currentWord);
+            } catch (error) {
+                console.error("深度记忆训练出错:", error);
+                updateStatusBar("深度记忆训练出错");
+            } finally {
+                isDeepMemoryPlaying = false;
+                deepMemoryBtn.classList.remove('active');
+                deepMemoryBtn.title = "深度记忆训练";
+            }
+        }
+
+        // 导出到Excel
+        function exportToExcel() {
+            try {
+                // 准备数据
+                const data = [
+                    ["单词", "音标", "中文释义", "例句"]
+                ];
+                
+                words.forEach(word => {
+                    // 将多个例句用"|"连接
+                    const examples = word.examples ? word.examples.join('|') : '';
+                    data.push([word.word, word.phonetic, word.meaning, examples]);
+                });
+                
+                // 创建工作簿和工作表
+                const ws = XLSX.utils.aoa_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "单词表");
+                
+                // 生成Excel文件并下载
+                XLSX.writeFile(wb, "单词表.xlsx");
+                
+                updateStatusBar("已成功导出单词表到 Excel 文件");
+            } catch (error) {
+                updateStatusBar("导出失败: " + error.message);
+                console.error("导出错误:", error);
+            }
+        }
+
+        // 从Excel导入
+        function importFromExcel(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // 获取第一个工作表
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    
+                    // 转换为JSON数据
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    // 处理数据
+                    const importedWords = [];
+                    
+                    // 跳过标题行
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        if (row && row.length >= 3) {
+                            const word = row[0] || '';
+                            const phonetic = row[1] || '';
+                            const meaning = row[2] || '';
+                            let examples = [];
+                            
+                            // 处理例句
+                            if (row[3]) {
+                                if (typeof row[3] === 'string') {
+                                    // 用"|"分割多个例句
+                                    examples = row[3].split('|').filter(ex => ex.trim() !== '');
+                                }
+                            }
+                            
+                            if (word.trim() !== '') {
+                                importedWords.push({
+                                    word: word.trim(),
+                                    phonetic: phonetic.trim(),
+                                    meaning: meaning.trim(),
+                                    examples: examples
+                                });
+                            }
+                        }
+                    }
+                    
+                    if (importedWords.length > 0) {
+                        words = importedWords;
+                        renderWordCards();
+                        displayWord(0);
+                        updateStatusBar(`成功导入 ${importedWords.length} 个单词`);
+                    } else {
+                        updateStatusBar("导入失败: Excel文件中没有找到有效的单词数据");
+                    }
+                } catch (error) {
+                    updateStatusBar("导入失败: " + error.message);
+                    console.error("导入错误:", error);
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+
+        // 更新状态栏
+        function updateStatusBar(message) {
+            statusBar.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
+        }
+
+        // 设置事件监听器
+        function setupEventListeners() {
+            // 随机单词按钮
+            randomWordBtn.addEventListener('click', () => {
+                toggleRandomPlay('word');
+            });
+            
+            // 随机释义按钮 - 修改为只发音中文释义
+            randomMeaningBtn.addEventListener('click', () => {
+                toggleRandomPlay('meaning');
+            });
+            
+            // 深度记忆按钮
+            deepMemoryBtn.addEventListener('click', () => {
+                playDeepMemory();
+            });
+            
+            // 发音间隔滑块
+            intervalSlider.addEventListener('input', function() {
+                speechInterval = this.value * 1000; // 转换为毫秒
+                intervalValue.textContent = this.value;
+            });
+            
+            // 发音速度滑块
+            rateSlider.addEventListener('input', function() {
+                speechRate = parseFloat(this.value);
+                rateValue.textContent = this.value;
+            });
+            
+            // 发音人选择
+            voiceSelect.addEventListener('change', function() {
+                const selectedIndex = parseInt(this.value);
+                if (!isNaN(selectedIndex) && selectedIndex >= 0 && selectedIndex < voices.length) {
+                    currentVoice = voices[selectedIndex];
+                } else {
+                    currentVoice = null;
+                }
+            });
+            
+            // 导出按钮
+            exportBtn.addEventListener('click', exportToExcel);
+            
+            // 导入文件
+            excelFileInput.addEventListener('change', function() {
+                if (this.files.length > 0) {
+                    importFromExcel(this.files[0]);
+                    // 重置文件输入，允许再次选择相同文件
+                    this.value = '';
+                }
+            });
+        }
+
+        // 页面加载完成后初始化应用
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
