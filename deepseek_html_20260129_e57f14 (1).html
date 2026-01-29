@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词学习卡片</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        /* 基础重置 */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* 卡片翻转核心样式 */
+        .card-container {
+            perspective: 1000px;
+            height: 600px; /* 增加高度容纳中文例句 */
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s ease;
+            transform-style: preserve-3d;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 12px;
+        }
+        
+        .card-flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            padding: 30px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        
+        /* 功能分区 */
+        .function-section {
+            margin-bottom: 1.5rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .function-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-title::before {
+            content: "";
+            width: 4px;
+            height: 16px;
+            background-color: #3b82f6;
+            border-radius: 2px;
+        }
+        
+        /* 单词音标框样式 */
+        .word-phonetic-box {
+            background-color: #f8fafc;
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            border: 1px solid #e2e8f0;
+            flex: 2; /* 分配空间比例 */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .word-text {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #1d4ed8;
+            margin-bottom: 15px;
+            line-height: 1.2;
+        }
+        
+        .phonetic-text {
+            font-size: 1.6rem;
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        /* 英文例句框样式 */
+        .english-examples-box {
+            background-color: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e2e8f0;
+            flex: 1; /* 分配空间比例 */
+        }
+        
+        .box-header {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .examples-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #1f2937;
+        }
+        
+        /* 可点击的英文例句样式 */
+        .english-example-item {
+            cursor: pointer;
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .english-example-item:hover {
+            background-color: #e0f2fe;
+            transform: translateX(4px);
+        }
+        
+        .english-example-item:active {
+            background-color: #bae6fd;
+        }
+        
+        .english-example-item.speaking {
+            background-color: #bae6fd;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* 间隔控制样式 */
+        .interval-control {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .interval-control input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+        }
+        
+        /* 图标按钮样式 - 修复后 */
+        .icon-btn {
+            width: 40px;
+            height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-radius: 0.375rem;
+            font-size: 1.2rem;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            border: none;
+            outline: none;
+            position: relative;
+            background-color: transparent; /* 确保背景透明 */
+            z-index: 10; /* 确保按钮在伪元素上层 */
+        }
+        
+        /* 修复按钮点击区域 */
+        .icon-btn > i {
+            position: relative;
+            z-index: 20;
+            pointer-events: none; /* 让图标不阻止点击 */
+        }
+        
+        /* 按钮状态样式 */
+        .icon-btn.bg-blue-600 { background-color: #2563eb; }
+        .icon-btn.bg-blue-600:hover { background-color: #1d4ed8; }
+        .icon-btn.bg-purple-600 { background-color: #7c3aed; }
+        .icon-btn.bg-purple-600:hover { background-color: #6d28d9; }
+        .icon-btn.bg-green-600 { background-color: #059669; }
+        .icon-btn.bg-green-600:hover { background-color: #047857; }
+        .icon-btn.bg-orange-600 { background-color: #ea580c; }
+        .icon-btn.bg-orange-600:hover { background-color: #c2410c; }
+        .icon-btn.bg-red-600 { background-color: #dc2626; }
+        .icon-btn.bg-red-600:hover { background-color: #b91c1c; }
+        
+        /* 卡片背面内容样式 */
+        .back-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .definition-section, .example-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .section-header {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .definition-content, .example-content {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #1f2937;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .card-container {
+                height: 500px;
+            }
+            
+            .word-text {
+                font-size: 2.8rem;
+            }
+            
+            .phonetic-text {
+                font-size: 1.3rem;
+            }
+            
+            .card-front, .card-back {
+                padding: 15px;
+            }
+            
+            .word-phonetic-box {
+                padding: 20px 10px;
+                margin-bottom: 15px;
+            }
+            
+            .english-example-item {
+                padding: 6px 8px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-6">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row gap-6">
+        <!-- 卡片容器 - 左侧 -->
+        <div class="flex-1 md:flex-4">
+            <div class="card-container mb-6 md:mb-0">
+                <div class="card" id="wordCard">
+                    <!-- 卡片正面 - 单词音标 + 英文例句 -->
+                    <div class="card-front">
+                        <!-- 单词音标框 -->
+                        <div class="word-phonetic-box">
+                            <h2 class="word-text" id="wordText">apple</h2>
+                            <p class="phonetic-text" id="phoneticText">/ˈæpl/</p>
+                        </div>
+                        
+                        <!-- 英文例句框（原中文例句位置） -->
+                        <div class="english-examples-box">
+                            <h3 class="box-header">英文例句</h3>
+                            <div id="englishExamplesFront" class="examples-content space-y-2">
+                                暂无例句
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 卡片背面 -->
+                    <div class="card-back">
+                        <div class="back-content">
+                            <div class="definition-section">
+                                <h3 class="section-header">单词释义</h3>
+                                <div id="wordDefinitions" class="definition-content space-y-2">
+                                    暂无释义
+                                </div>
+                            </div>
+                            <div class="example-section">
+                                <!-- 中文例句（原英文例句位置） -->
+                                <h3 class="section-header">中文例句</h3>
+                                <div id="chineseExamplesBack" class="example-content space-y-3">
+                                    暂无例句
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 控制面板 - 右侧 -->
+        <div class="w-full md:w-80 shrink-0">
+            <div class="bg-white p-5 rounded-lg shadow-md h-fit">
+                <!-- 导航控制 -->
+                <div class="function-section">
+                    <h3 class="section-title">导航控制</h3>
+                    <div class="flex flex-wrap gap-2 items-center">
+                        <button id="prevWordBtn" class="icon-btn bg-blue-600 text-white" title="上一个单词">
+                            <i class="fa fa-arrow-left"></i>
+                        </button>
+                        <button id="nextWordBtn" class="icon-btn bg-blue-600 text-white" title="下一个单词">
+                            <i class="fa fa-arrow-right"></i>
+                        </button>
+                        <button id="flipCardBtn" class="icon-btn bg-purple-600 text-white" title="翻转卡片">
+                            <i class="fa fa-exchange"></i>
+                        </button>
+                        <span id="wordIndex" class="flex items-center px-4 text-gray-700 min-w-[80px]">1/5</span>
+                    </div>
+                </div>
+
+                <!-- 发音功能 -->
+                <div class="function-section">
+                    <h3 class="section-title">发音功能</h3>
+                    <div class="flex flex-wrap gap-2">
+                        <button id="speakWordBtn" class="icon-btn bg-green-600 text-white" title="发音单词">
+                            <i class="fa fa-volume-up"></i>
+                        </button>
+                        <button id="speakLettersBtn" class="icon-btn bg-green-600 text-white" title="发音字母">
+                            <i class="fa fa-font"></i>
+                        </button>
+                        <button id="speakWordChineseBtn" class="icon-btn bg-green-600 text-white" title="发音单词+中文释义">
+                            <i class="fa fa-commenting"></i>
+                        </button>
+                        <button id="speakWordExamplesBtn" class="icon-btn bg-green-600 text-white" title="发音单词+英文例句">
+                            <i class="fa fa-comments"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 发音人设置 + 间隔控制 -->
+                <div class="function-section">
+                    <h3 class="section-title">发音设置</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-gray-700 mb-1 text-sm" for="englishVoiceSelect">英文发音人</label>
+                            <select id="englishVoiceSelect" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                <option value="">加载中...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 mb-1 text-sm" for="chineseVoiceSelect">中文发音人</label>
+                            <select id="chineseVoiceSelect" class="w-full px-3 py-2 border border-gray-300 rounded text-sm">
+                                <option value="">加载中...</option>
+                            </select>
+                        </div>
+                        <div class="interval-control">
+                            <label class="block text-gray-700 mb-1 text-sm" for="letterIntervalInput">字母发音间隔(ms)</label>
+                            <input 
+                                type="number" 
+                                id="letterIntervalInput" 
+                                min="0"
+                                class="w-full px-3 py-2 border border-gray-300 rounded text-sm"
+                            >
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 文件管理 -->
+                <div class="function-section">
+                    <h3 class="section-title">文件管理</h3>
+                    <div class="flex flex-wrap gap-2 items-start">
+                        <label class="icon-btn bg-orange-600 text-white cursor-pointer" title="导入Excel文件">
+                            <i class="fa fa-upload"></i>
+                            <input type="file" id="importExcelInput" accept=".xlsx,.xls" class="hidden">
+                        </label>
+                        <button id="exportExcelBtn" class="icon-btn bg-orange-600 text-white" title="导出Excel文件">
+                            <i class="fa fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 核心数据
+        let wordData = [
+            {
+                word: "apple",
+                phonetic: "ˈæpl",
+                definitions: ["n. 苹果；苹果树；苹果公司", "n. 珍宝；珍品"],
+                chineseExamples: [["我每天吃一个apple。", "这个apple很甜。"], ["她是家里的apple，备受宠爱。"]],
+                englishExamples: [["I eat an apple every day.", "This apple is very sweet."], ["She is the apple of her family's eye."]]
+            },
+            {
+                word: "banana",
+                phonetic: "bəˈnɑːnə",
+                definitions: ["n. 香蕉；芭蕉属植物", "adj. 疯狂的；糊涂的"],
+                chineseExamples: [["猴子喜欢吃banana。", "我买了一串banana。"], ["他今天有点banana，做事颠三倒四。"]],
+                englishExamples: [["Monkeys like to eat bananas.", "I bought a bunch of bananas."], ["He's gone bananas today, acting all confused."]]
+            },
+            {
+                word: "computer",
+                phonetic: "kəmˈpjuːtər",
+                definitions: ["n. 计算机；电脑；电子计算机", "n. 计算者；计算器"],
+                chineseExamples: [["我用computer工作和学习。", "这个computer配置很高。"], ["他是个出色的computer，心算能力极强。"]],
+                englishExamples: [["I use a computer for work and study.", "This computer has a high configuration."], ["He is an excellent computer with a strong mental arithmetic ability."]]
+            },
+            {
+                word: "beautiful",
+                phonetic: "ˈbjuːtɪfl",
+                definitions: ["adj. 美丽的；出色的；迷人的", "adj. 极好的；很棒的"],
+                chineseExamples: [["她有一张beautiful的脸。", "这是一个beautiful的花园。"], ["我们度过了一个beautiful的假期。"]],
+                englishExamples: [["She has a beautiful face.", "This is a beautiful garden."], ["We had a beautiful holiday."]]
+            },
+            {
+                word: "happiness",
+                phonetic: "ˈhæpinəs",
+                definitions: ["n. 幸福；快乐；愉快", "n. 恰当；合适"],
+                chineseExamples: [["金钱买不到happiness。", "她的脸上洋溢着happiness。"], ["这个决定很有happiness，符合我们的需求。"]],
+                englishExamples: [["Money can't buy happiness.", "Her face was full of happiness."], ["This decision has great happiness and meets our needs."]]
+            }
+        ];          
+        let currentIndex = 0;       
+        let isSpeaking = false;     
+        let currentTask = null;     
+        let speakTimer = null;      
+        const synth = window.speechSynthesis; 
+        let englishVoices = [];     
+        let chineseVoices = [];
+        let letterInterval = 0;    // 默认值改为0
+
+        // DOM元素 - 更新元素引用
+        const dom = {
+            wordCard: document.getElementById('wordCard'),
+            wordText: document.getElementById('wordText'),
+            phoneticText: document.getElementById('phoneticText'),
+            englishExamplesFront: document.getElementById('englishExamplesFront'), // 正面英文例句
+            chineseExamplesBack: document.getElementById('chineseExamplesBack'),   // 背面中文例句
+            wordDefinitions: document.getElementById('wordDefinitions'),
+            wordIndex: document.getElementById('wordIndex'),
+            englishVoiceSelect: document.getElementById('englishVoiceSelect'),
+            chineseVoiceSelect: document.getElementById('chineseVoiceSelect'),
+            letterIntervalInput: document.getElementById('letterIntervalInput'),
+            prevWordBtn: document.getElementById('prevWordBtn'),
+            nextWordBtn: document.getElementById('nextWordBtn'),
+            flipCardBtn: document.getElementById('flipCardBtn'),
+            speakWordBtn: document.getElementById('speakWordBtn'),
+            speakLettersBtn: document.getElementById('speakLettersBtn'),
+            speakWordChineseBtn: document.getElementById('speakWordChineseBtn'),
+            speakWordExamplesBtn: document.getElementById('speakWordExamplesBtn'),
+            importExcelInput: document.getElementById('importExcelInput'),
+            exportExcelBtn: document.getElementById('exportExcelBtn')
+        };
+
+        // ========== 初始化：字母间隔控制 ==========
+        function initIntervalControl() {
+            dom.letterIntervalInput.value = letterInterval;
+            
+            dom.letterIntervalInput.addEventListener('input', (e) => {
+                let value = parseInt(e.target.value);
+                if (isNaN(value)) value = 0;
+                if (value < 0) value = 0;  // 仅保留最小值限制
+                
+                letterInterval = value;
+                dom.letterIntervalInput.value = value;
+            });
+        }
+
+        // ========== 语音合成初始化 ==========
+        function initVoices() {
+            const loadVoices = () => {
+                const voices = synth.getVoices();
+                englishVoices = voices.filter(v => v.lang.includes('en'));
+                chineseVoices = voices.filter(v => v.lang.includes('zh'));
+
+                // 填充英文发音人
+                dom.englishVoiceSelect.innerHTML = '';
+                if (englishVoices.length === 0) {
+                    dom.englishVoiceSelect.innerHTML = '<option value="">无可用英文发音人</option>';
+                    alert('⚠️ 未检测到英文发音人，发音功能可能无法使用');
+                } else {
+                    englishVoices.forEach((v, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = i;
+                        opt.textContent = `${v.name} (${v.lang})`;
+                        dom.englishVoiceSelect.appendChild(opt);
+                    });
+                    dom.englishVoiceSelect.value = 0;
+                }
+
+                // 填充中文发音人
+                dom.chineseVoiceSelect.innerHTML = '';
+                if (chineseVoices.length === 0) {
+                    dom.chineseVoiceSelect.innerHTML = '<option value="">无可用中文发音人</option>';
+                } else {
+                    chineseVoices.forEach((v, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = i;
+                        opt.textContent = `${v.name} (${v.lang})`;
+                        dom.chineseVoiceSelect.appendChild(opt);
+                    });
+                    dom.chineseVoiceSelect.value = 0;
+                }
+            };
+
+            synth.onvoiceschanged = loadVoices;
+            setTimeout(() => {
+                loadVoices();
+                if (englishVoices.length === 0) setTimeout(loadVoices, 500);
+            }, 100);
+        }
+
+        // ========== 创建发音实例 ==========
+        function createUtterance(text, isChinese = false) {
+            if (!synth) return null;
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.volume = 1;
+            utterance.rate = 0.8;
+            utterance.pitch = 1;
+
+            if (isChinese) {
+                utterance.lang = 'zh-CN';
+                const voiceIndex = dom.chineseVoiceSelect.value;
+                if (voiceIndex !== "" && chineseVoices[voiceIndex]) {
+                    utterance.voice = chineseVoices[voiceIndex];
+                }
+            } else {
+                utterance.lang = 'en-US';
+                const voiceIndex = dom.englishVoiceSelect.value;
+                if (voiceIndex !== "" && englishVoices[voiceIndex]) {
+                    utterance.voice = englishVoices[voiceIndex];
+                }
+            }
+
+            return utterance;
+        }
+
+        // ========== 发音单个英文例句 ==========
+        function speakEnglishExample(exampleText, exampleElement) {
+            if (!synth) return;
+            
+            // 停止当前发音
+            if (synth.speaking) synth.cancel();
+            
+            // 添加发音中样式
+            if (exampleElement) {
+                exampleElement.classList.add('speaking');
+            }
+            
+            const utterance = createUtterance(exampleText);
+            if (!utterance) return;
+            
+            utterance.onend = () => {
+                // 移除发音中样式
+                if (exampleElement) {
+                    exampleElement.classList.remove('speaking');
+                }
+            };
+            
+            utterance.onerror = () => {
+                // 移除发音中样式
+                if (exampleElement) {
+                    exampleElement.classList.remove('speaking');
+                }
+            };
+            
+            synth.speak(utterance);
+        }
+
+        // ========== 停止所有发音 ==========
+        function stopSpeaking() {
+            isSpeaking = false;
+            currentTask = null;
+            if (synth) synth.cancel();
+            
+            if (speakTimer) {
+                clearTimeout(speakTimer);
+                speakTimer = null;
+            }
+            
+            // 重置所有发音按钮图标
+            const speakButtons = [
+                dom.speakWordBtn,
+                dom.speakLettersBtn,
+                dom.speakWordChineseBtn,
+                dom.speakWordExamplesBtn
+            ];
+            
+            speakButtons.forEach(btn => {
+                if (btn) {
+                    const icon = btn.querySelector('i');
+                    if (icon) {
+                        if (btn === dom.speakWordBtn) icon.className = 'fa fa-volume-up';
+                        else if (btn === dom.speakLettersBtn) icon.className = 'fa fa-font';
+                        else if (btn === dom.speakWordChineseBtn) icon.className = 'fa fa-commenting';
+                        else if (btn === dom.speakWordExamplesBtn) icon.className = 'fa fa-comments';
+                    }
+                }
+            });
+            
+            // 移除所有例句的发音中样式
+            const speakingItems = document.querySelectorAll('.english-example-item.speaking');
+            speakingItems.forEach(item => item.classList.remove('speaking'));
+        }
+
+        // ========== 循环发音单词 ==========
+        function speakWord() {
+            if (wordData.length === 0) return;
+            
+            if (isSpeaking) {
+                stopSpeaking();
+                return;
+            }
+
+            isSpeaking = true;
+            dom.speakWordBtn.innerHTML = '<i class="fa fa-stop"></i>';
+            
+            const speakOnce = () => {
+                if (!isSpeaking) return;
+                
+                const utterance = createUtterance(wordData[currentIndex].word);
+                if (!utterance) return;
+                
+                currentTask = utterance;
+
+                utterance.onend = () => {
+                    if (isSpeaking) {
+                        speakTimer = setTimeout(speakOnce, 1000);
+                    }
+                };
+                utterance.onerror = () => {
+                    if (isSpeaking) {
+                        stopSpeaking();
+                        alert('❌ 发音失败，请检查浏览器语音设置');
+                    }
+                };
+
+                synth.speak(utterance);
+            };
+
+            speakOnce();
+        }
+
+        // ========== 循环发音：单词→字母→单词 ==========
+        function speakLetters() {
+            if (wordData.length === 0) return;
+            
+            if (isSpeaking) {
+                stopSpeaking();
+                return;
+            }
+
+            isSpeaking = true;
+            dom.speakLettersBtn.innerHTML = '<i class="fa fa-stop"></i>';
+            
+            const currentWord = wordData[currentIndex].word;
+            const letters = currentWord.split('');
+
+            const speakFullProcess = () => {
+                if (!isSpeaking) return;
+
+                let step = 0;
+                
+                const executeStep = () => {
+                    if (!isSpeaking) return;
+
+                    if (step === 0) {
+                        const utterance = createUtterance(currentWord);
+                        if (!utterance) return;
+                        
+                        currentTask = utterance;
+                        
+                        utterance.onend = () => {
+                            step = 1;
+                            setTimeout(executeStep, 500);
+                        };
+                        utterance.onerror = () => {
+                            if (isSpeaking) {
+                                stopSpeaking();
+                                alert('❌ 单词发音失败');
+                            }
+                        };
+                        synth.speak(utterance);
+                    }
+                    else if (step === 1) {
+                        let letterIndex = 0;
+                        
+                        const speakNextLetter = () => {
+                            if (!isSpeaking || letterIndex >= letters.length) {
+                                step = 2;
+                                setTimeout(executeStep, 500);
+                                return;
+                            }
+
+                            const utterance = createUtterance(letters[letterIndex]);
+                            if (!utterance) return;
+                            
+                            currentTask = utterance;
+
+                            utterance.onend = () => {
+                                letterIndex++;
+                                setTimeout(speakNextLetter, letterInterval);
+                            };
+                            utterance.onerror = () => {
+                                if (isSpeaking) {
+                                    stopSpeaking();
+                                    alert('❌ 字母发音失败');
+                                }
+                            };
+
+                            synth.speak(utterance);
+                        };
+
+                        speakNextLetter();
+                    }
+                    else if (step === 2) {
+                        const utterance = createUtterance(currentWord);
+                        if (!utterance) return;
+                        
+                        currentTask = utterance;
+                        
+                        utterance.onend = () => {
+                            if (isSpeaking) {
+                                speakTimer = setTimeout(speakFullProcess, 1000);
+                            }
+                        };
+                        utterance.onerror = () => {
+                            if (isSpeaking) {
+                                stopSpeaking();
+                                alert('❌ 单词发音失败');
+                            }
+                        };
+                        synth.speak(utterance);
+                    }
+                };
+
+                executeStep();
+            };
+
+            speakFullProcess();
+        }
+
+        // ========== 循环发音：单词+中文释义 ==========
+        function speakWordAndChinese() {
+            if (wordData.length === 0) return;
+            
+            if (isSpeaking) {
+                stopSpeaking();
+                return;
+            }
+
+            isSpeaking = true;
+            dom.speakWordChineseBtn.innerHTML = '<i class="fa fa-stop"></i>';
+            
+            const speakOnce = () => {
+                if (!isSpeaking) return;
+                
+                const currentWord = wordData[currentIndex];
+                const contents = [{text: currentWord.word, isChinese: false}];
+                if (currentWord.definitions) {
+                    currentWord.definitions.forEach(def => {
+                        contents.push({text: def, isChinese: true});
+                    });
+                }
+
+                let index = 0;
+
+                const speakNextContent = () => {
+                    if (!isSpeaking || index >= contents.length) {
+                        if (isSpeaking) {
+                            speakTimer = setTimeout(speakOnce, 1000);
+                        }
+                        return;
+                    }
+
+                    const content = contents[index];
+                    const utterance = createUtterance(content.text, content.isChinese);
+                    if (!utterance) return;
+                    
+                    currentTask = utterance;
+
+                    utterance.onend = () => {
+                        index++;
+                        setTimeout(speakNextContent, 800);
+                    };
+                    utterance.onerror = () => {
+                        if (isSpeaking) {
+                            stopSpeaking();
+                            alert('❌ 中文释义发音失败');
+                        }
+                    };
+
+                    synth.speak(utterance);
+                };
+
+                speakNextContent();
+            };
+
+            speakOnce();
+        }
+
+        // ========== 循环发音：单词+英文例句 ==========
+        function speakWordAndExamples() {
+            if (wordData.length === 0) return;
+            
+            if (isSpeaking) {
+                stopSpeaking();
+                return;
+            }
+
+            isSpeaking = true;
+            dom.speakWordExamplesBtn.innerHTML = '<i class="fa fa-stop"></i>';
+            
+            const speakOnce = () => {
+                if (!isSpeaking) return;
+                
+                const currentWord = wordData[currentIndex];
+                const contents = [currentWord.word];
+                if (currentWord.englishExamples) {
+                    currentWord.englishExamples.forEach(examples => {
+                        examples.forEach(example => contents.push(example));
+                    });
+                }
+
+                let index = 0;
+
+                const speakNextContent = () => {
+                    if (!isSpeaking || index >= contents.length) {
+                        if (isSpeaking) {
+                            speakTimer = setTimeout(speakOnce, 1000);
+                        }
+                        return;
+                    }
+
+                    const utterance = createUtterance(contents[index]);
+                    if (!utterance) return;
+                    
+                    currentTask = utterance;
+
+                    utterance.onend = () => {
+                        index++;
+                        setTimeout(speakNextContent, 800);
+                    };
+                    utterance.onerror = () => {
+                        if (isSpeaking) {
+                            stopSpeaking();
+                            alert('❌ 例句发音失败');
+                        }
+                    };
+
+                    synth.speak(utterance);
+                };
+
+                speakNextContent();
+            };
+
+            speakOnce();
+        }
+
+        // ========== 渲染当前单词 ==========
+        function renderCurrentWord() {
+            if (wordData.length === 0) {
+                dom.wordText.textContent = '未加载单词';
+                dom.phoneticText.textContent = '暂无音标';
+                dom.englishExamplesFront.innerHTML = '暂无例句';
+                dom.chineseExamplesBack.innerHTML = '暂无例句';
+                dom.wordDefinitions.innerHTML = '暂无释义';
+                dom.wordIndex.textContent = '0/0';
+                return;
+            }
+
+            const w = wordData[currentIndex];
+            dom.wordIndex.textContent = `${currentIndex + 1}/${wordData.length}`;
+            dom.wordText.textContent = w.word || '无单词';
+            dom.phoneticText.textContent = w.phonetic ? `/${w.phonetic}/` : '暂无音标';
+
+            // 正面：英文例句渲染（可点击发音）
+            let eeHtml = '';
+            if (w.englishExamples && w.englishExamples.length) {
+                w.englishExamples.forEach((es, i) => {
+                    if (es.length) {
+                        eeHtml += `<div class="mb-2"><span class="text-gray-500 text-sm">释义${i+1}：</span></div>`;
+                        es.forEach(e => {
+                            // 为每个例句添加点击事件和示例文本
+                            eeHtml += `<div class="english-example-item" onclick="handleEnglishExampleClick(this, '${e.replace(/'/g, "\\'")}')">${e}</div>`;
+                        });
+                    }
+                });
+            } else {
+                eeHtml = '暂无例句';
+            }
+            dom.englishExamplesFront.innerHTML = eeHtml;
+
+            // 背面：中文例句渲染
+            let ceHtml = '';
+            if (w.chineseExamples && w.chineseExamples.length) {
+                w.chineseExamples.forEach((es, i) => {
+                    if (es.length) {
+                        ceHtml += `<div class="mb-2"><span class="text-gray-500 text-sm">释义${i+1}：</span></div>`;
+                        es.forEach(e => ceHtml += `<div>${e}</div>`);
+                    }
+                });
+            } else {
+                ceHtml = '暂无例句';
+            }
+            dom.chineseExamplesBack.innerHTML = ceHtml;
+
+            // 单词释义
+            let defHtml = '';
+            if (w.definitions && w.definitions.length) {
+                w.definitions.forEach((d, i) => defHtml += `<div>${i+1}. ${d}</div>`);
+            } else {
+                defHtml = '暂无释义';
+            }
+            dom.wordDefinitions.innerHTML = defHtml;
+        }
+
+        // ========== 处理英文例句点击 ==========
+        function handleEnglishExampleClick(element, exampleText) {
+            // 停止所有发音
+            stopSpeaking();
+            
+            // 发音选中的例句
+            speakEnglishExample(exampleText, element);
+        }
+
+        // ========== 导入导出Excel ==========
+        function importExcel(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const json = XLSX.utils.sheet_to_json(sheet);
+
+                    wordData = json.map(item => ({
+                        word: item.单词 ? item.单词.toString().trim() : '',
+                        phonetic: item.音标 ? item.音标.toString().trim() : '',
+                        definitions: item.释义 ? item.释义.toString().split('|').filter(d => d.trim()) : [],
+                        chineseExamples: item.中文例句 ? item.中文例句.toString().split('||').map(es => es.split(',').filter(e => e.trim())) : [],
+                        englishExamples: item.英文例句 ? item.英文例句.toString().split('||').map(es => es.split(',').filter(e => e.trim())) : []
+                    })).filter(item => item.word);
+
+                    currentIndex = 0;
+                    renderCurrentWord();
+                    alert(`✅ 导入成功：${wordData.length} 个单词`);
+                } catch (err) {
+                    console.error('导入失败：', err);
+                    alert('❌ 导入失败，请检查Excel格式');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function exportExcel() {
+            if (wordData.length === 0) {
+                alert('⚠️ 暂无单词可导出');
+                return;
+            }
+
+            const exportData = wordData.map(item => ({
+                单词: item.word,
+                音标: item.phonetic,
+                释义: item.definitions.join('|'),
+                中文例句: item.chineseExamples.map(es => es.join(',')).join('||'),
+                英文例句: item.englishExamples.map(es => es.join(',')).join('||')
+            }));
+
+            const sheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, sheet, '单词列表');
+            XLSX.writeFile(workbook, '单词列表.xlsx');
+        }
+
+        // ========== 事件监听 ==========
+        function initEvents() {
+            // 翻转卡片
+            dom.flipCardBtn.addEventListener('click', () => {
+                dom.wordCard.classList.toggle('card-flipped');
+            });
+
+            // 上一个单词
+            dom.prevWordBtn.addEventListener('click', () => {
+                if (wordData.length === 0) return;
+                stopSpeaking();
+                currentIndex = (currentIndex - 1 + wordData.length) % wordData.length;
+                renderCurrentWord();
+            });
+
+            // 下一个单词
+            dom.nextWordBtn.addEventListener('click', () => {
+                if (wordData.length === 0) return;
+                stopSpeaking();
+                currentIndex = (currentIndex + 1) % wordData.length;
+                renderCurrentWord();
+            });
+
+            // 发音按钮 - 修复点击事件
+            dom.speakWordBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); // 防止事件冒泡
+                speakWord();
+            });
+            
+            dom.speakLettersBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                speakLetters();
+            });
+            
+            dom.speakWordChineseBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                speakWordAndChinese();
+            });
+            
+            dom.speakWordExamplesBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                speakWordAndExamples();
+            });
+
+            // 导入导出
+            dom.importExcelInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    importExcel(file);
+                    e.target.value = '';
+                }
+            });
+            dom.exportExcelBtn.addEventListener('click', exportExcel);
+
+            // 切换发音人时停止发音
+            dom.englishVoiceSelect.addEventListener('change', stopSpeaking);
+            dom.chineseVoiceSelect.addEventListener('change', stopSpeaking);
+
+            // 页面点击空白处停止发音
+            document.addEventListener('click', (e) => {
+                const isSpeakButton = e.target.closest('.icon-btn.bg-green-600');
+                const isEnglishExample = e.target.closest('.english-example-item');
+                
+                if (!isSpeakButton && !isEnglishExample && isSpeaking) {
+                    stopSpeaking();
+                }
+            });
+
+            // 页面卸载时清理
+            window.addEventListener('beforeunload', stopSpeaking);
+        }
+
+        // ========== 初始化 ==========
+        window.addEventListener('DOMContentLoaded', () => {
+            if (!('speechSynthesis' in window)) {
+                alert('❌ 您的浏览器不支持语音合成功能，请更换Chrome/Edge浏览器');
+            }
+            
+            initIntervalControl();
+            initVoices();
+            initEvents();
+            renderCurrentWord();
+            
+            // 确保handleEnglishExampleClick函数在全局可访问
+            window.handleEnglishExampleClick = handleEnglishExampleClick;
+        });
+    </script>
+</body>
+</html>
